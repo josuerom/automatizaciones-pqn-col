@@ -1,185 +1,652 @@
 """
-   Optimize_System_Performance.py
-   Autor: Josué Romero
-   Empresa: Stefanini / PQN
-   Fecha: 30/Agosto/2025
+Optimize_System_Performance.py - Versión Mejorada
+Autor: Josué Romero
+Empresa: Stefanini / PQN
+Fecha: 31/Octubre/2025
 
-   Descripción:
-   Optimiza el rendimiento del equipo ejecutando varias herramientas claves
+Descripción:
+Optimiza el rendimiento del equipo ejecutando varias herramientas clave del sistema.
 """
 
 import sys
 import ctypes
 import subprocess
 import threading
+import time
 import customtkinter as ctk
 from tkinter import messagebox
+from datetime import datetime
 
+# ============================================================================
+# CONFIGURACIÓN GLOBAL
+# ============================================================================
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-APP_TITLE = "Optimizador de Sistema Operativo"
-APP_SIZE = "510x535"
+APP_TITLE = "Optimizador de Sistema"
+APP_VERSION = "v2.0"
+APP_SIZE = "800x900"
+
+# Colores
+COLOR_PRIMARY = "#42a5f5"
+COLOR_SUCCESS = "#66bb6a"
+COLOR_WARNING = "#ffa726"
+COLOR_ERROR = "#ef5350"
+COLOR_BG_DARK = "#1a1a1a"
+COLOR_BG_LIGHT = "#2d2d2d"
+COLOR_TEXT = "#e0e0e0"
+
+# Fuentes
+FONT_TITLE = ("Segoe UI", 26, "bold")
+FONT_SUBTITLE = ("Segoe UI", 11)
+FONT_CONSOLE = ("Consolas", 9)
+FONT_BUTTON = ("Segoe UI", 12, "bold")
+FONT_LABEL = ("Segoe UI", 11, "bold")
 
 
-def run_command(command, shell=True):
-   process = subprocess.run(command, capture_output=True, text=True, shell=shell)
-   return process.stdout.strip(), process.stderr.strip(), process.returncode
+# ============================================================================
+# DEFINICIÓN DE TAREAS DE OPTIMIZACIÓN
+# ============================================================================
+
+OPTIMIZATION_TASKS = [
+   {
+      "id": "cleanmgr",
+      "name": "Limpieza de Disco",
+      "description": "Elimina archivos temporales del sistema",
+      "command": "cleanmgr /verylowdisk /sagerun:1",
+      "estimated_time": "2-3 min",
+      "enabled": True,
+      "critical": False
+   },
+   {
+      "id": "defrag_c",
+      "name": "Optimizar Disco C:",
+      "description": "Desfragmenta y optimiza el disco principal",
+      "command": "defrag C: /O /H",
+      "estimated_time": "5-10 min",
+      "enabled": True,
+      "critical": False
+   },
+   {
+      "id": "defrag_d",
+      "name": "Optimizar Disco D:",
+      "description": "Desfragmenta y optimiza el disco secundario",
+      "command": "defrag D: /O /H",
+      "estimated_time": "5-10 min",
+      "enabled": False,  # Deshabilitado por defecto
+      "critical": False
+   },
+   {
+      "id": "temp_files",
+      "name": "Limpiar Archivos Temporales",
+      "description": "Elimina temporales de Windows y usuario",
+      "command": [
+         'powershell Remove-Item -Path "$env:TEMP\\*" -Recurse -Force -ErrorAction SilentlyContinue',
+         'powershell Remove-Item -Path "C:\\Windows\\Temp\\*" -Recurse -Force -ErrorAction SilentlyContinue',
+         'powershell Remove-Item "C:\\Windows\\Prefetch\\*" -Force -ErrorAction SilentlyContinue',
+         'powershell Clear-RecycleBin -Force -ErrorAction SilentlyContinue'
+      ],
+      "estimated_time": "1-2 min",
+      "enabled": True,
+      "critical": False
+   },
+   {
+      "id": "sfc",
+      "name": "Reparar Archivos del Sistema (SFC)",
+      "description": "Verifica y repara archivos corruptos de Windows",
+      "command": "sfc /scannow",
+      "estimated_time": "10-20 min",
+      "enabled": True,
+      "critical": True
+   },
+   {
+      "id": "dism_scan",
+      "name": "Escanear Imagen del Sistema (DISM)",
+      "description": "Escanea la integridad de la imagen de Windows",
+      "command": "DISM /Online /Cleanup-Image /ScanHealth",
+      "estimated_time": "5-10 min",
+      "enabled": True,
+      "critical": True
+   },
+   {
+      "id": "dism_restore",
+      "name": "Reparar Imagen del Sistema (DISM)",
+      "description": "Repara la imagen de Windows si hay errores",
+      "command": "DISM /Online /Cleanup-Image /RestoreHealth",
+      "estimated_time": "10-30 min",
+      "enabled": True,
+      "critical": True
+   },
+   {
+      "id": "winget_update",
+      "name": "Actualizar Programas (Winget)",
+      "description": "Actualiza todos los programas excepto Java SE 8",
+      "command": "powershell",  # Comando especial manejado por función
+      "estimated_time": "5-15 min",
+      "enabled": True,
+      "critical": False
+   }
+]
+
+
+# ============================================================================
+# FUNCIONES AUXILIARES
+# ============================================================================
+
+def is_admin():
+   """Verifica privilegios de administrador."""
+   try:
+      return ctypes.windll.shell32.IsUserAnAdmin()
+   except:
+      return False
+
+
+def run_command(command, shell=True, timeout=None):
+   """
+   Ejecuta un comando y retorna el resultado.
+   
+   Args:
+      command: Comando a ejecutar
+      shell: Usar shell
+      timeout: Timeout en segundos
+      
+   Returns:
+      tuple: (returncode, stdout, stderr)
+   """
+   try:
+      result = subprocess.run(
+         command,
+         capture_output=True,
+         text=True,
+         shell=shell,
+         timeout=timeout
+      )
+      return result.returncode, result.stdout.strip(), result.stderr.strip()
+   except subprocess.TimeoutExpired:
+      return -1, "", "Timeout"
+   except Exception as e:
+      return -1, "", str(e)
+
+
+# ============================================================================
+# CLASE PRINCIPAL
+# ============================================================================
 
 class OptimizeApp(ctk.CTk):
    def __init__(self):
       super().__init__()
-      self.title(APP_TITLE)
+      
+      # Configuración
+      self.title(f"{APP_TITLE} {APP_VERSION}")
       self.geometry(APP_SIZE)
       self.resizable(False, False)
+      
+      # Variables
+      self.is_processing = False
+      self.should_cancel = False
+      self.task_vars = {}
+      self.current_task = None
+      
+      # Construir interfaz
       self.build_ui()
-
+      
+      # Verificar prerequisitos
+      self.after(300, self.check_prerequisites)
+   
    def build_ui(self):
-      self.label_title = ctk.CTkLabel(self, text="Auto Optimizador de Windows", font=ctk.CTkFont(size=24, weight="bold"))
-      self.label_title.pack(pady=(15,10))
-
-      self.label_meta = ctk.CTkLabel(self, text="Autor: Josué Romero  |  Empresa: Stefanini / PQN  |  Fecha: 30/Agosto/2025", font=ctk.CTkFont(size=12))
-      self.label_meta.pack(pady=(0,20))
-
-      self.text_log = ctk.CTkTextbox(self, width=500, height=340)
-      self.text_log.pack(padx=10, pady=10)
-
-      self.btn_run = ctk.CTkButton(self, text="Ejecutar", command=self.on_start)
-      self.btn_run.pack(pady=10)
-
-      # Evento para consultar con Enter
-      self.btn_run.bind("<Return>", lambda event: self.on_start())
-
-      self.label_status = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=14, weight="bold"))
-      self.label_status.pack()
-
-   def log(self, msg):
+      """Construye la interfaz."""
+      
+      # Marco principal
+      main_frame = ctk.CTkFrame(self, fg_color=COLOR_BG_DARK)
+      main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+      
+      # === ENCABEZADO ===
+      header_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_PRIMARY, corner_radius=10)
+      header_frame.pack(fill="x", pady=(0, 15))
+      
+      title_label = ctk.CTkLabel(
+         header_frame,
+         text="⚡ " + APP_TITLE,
+         font=FONT_TITLE,
+         text_color="white"
+      )
+      title_label.pack(pady=15)
+      
+      subtitle_label = ctk.CTkLabel(
+         header_frame,
+         text=f"Autor: Josué Romero  |  Stefanini / PQN  |  {APP_VERSION}",
+         font=FONT_SUBTITLE,
+         text_color="#e3f2fd"
+      )
+      subtitle_label.pack(pady=(0, 15))
+      
+      # === SELECCIÓN DE TAREAS ===
+      tasks_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_BG_LIGHT, corner_radius=8)
+      tasks_frame.pack(fill="both", expand=True, pady=(0, 10))
+      
+      tasks_title = ctk.CTkLabel(
+         tasks_frame,
+         text="📋 Seleccione las Tareas a Ejecutar",
+         font=FONT_LABEL,
+         text_color=COLOR_TEXT
+      )
+      tasks_title.pack(pady=(10, 10), anchor="w", padx=15)
+      
+      # Scrollable frame para tareas
+      tasks_scroll = ctk.CTkScrollableFrame(
+         tasks_frame,
+         width=730,
+         height=230,
+         fg_color="transparent"
+      )
+      tasks_scroll.pack(padx=15, pady=(0, 10))
+      
+      # Crear checkboxes para cada tarea
+      for task in OPTIMIZATION_TASKS:
+         task_frame = ctk.CTkFrame(tasks_scroll, fg_color="#242424", corner_radius=6)
+         task_frame.pack(fill="x", pady=3, padx=5)
+         
+         # Variable para el checkbox
+         var = ctk.BooleanVar(value=task["enabled"])
+         self.task_vars[task["id"]] = var
+         
+         # Checkbox y nombre
+         checkbox = ctk.CTkCheckBox(
+               task_frame,
+               text="",
+               variable=var,
+               width=20
+         )
+         checkbox.pack(side="left", padx=10, pady=8)
+         
+         # Información de la tarea
+         info_frame = ctk.CTkFrame(task_frame, fg_color="transparent")
+         info_frame.pack(side="left", fill="x", expand=True, padx=5)
+         
+         name_label = ctk.CTkLabel(
+               info_frame,
+               text=task["name"],
+               font=("Segoe UI", 10, "bold"),
+               text_color=COLOR_SUCCESS if not task["critical"] else COLOR_WARNING,
+               anchor="w"
+         )
+         name_label.pack(anchor="w")
+         
+         desc_label = ctk.CTkLabel(
+               info_frame,
+               text=f"{task['description']} • Tiempo estimado: {task['estimated_time']}",
+               font=("Segoe UI", 9),
+               text_color="#9e9e9e",
+               anchor="w"
+         )
+         desc_label.pack(anchor="w")
+      
+      # Botones de selección rápida
+      quick_select_frame = ctk.CTkFrame(tasks_frame, fg_color="transparent")
+      quick_select_frame.pack(pady=(0, 10), padx=15)
+      
+      ctk.CTkButton(
+         quick_select_frame,
+         text="Seleccionar Todas",
+         command=self.select_all_tasks,
+         width=150,
+         height=30,
+         font=("Segoe UI", 10)
+      ).pack(side="left", padx=5)
+      
+      ctk.CTkButton(
+         quick_select_frame,
+         text="Deseleccionar Todas",
+         command=self.deselect_all_tasks,
+         width=150,
+         height=30,
+         font=("Segoe UI", 10)
+      ).pack(side="left", padx=5)
+      
+      ctk.CTkButton(
+         quick_select_frame,
+         text="Solo Rápidas",
+         command=self.select_quick_tasks,
+         width=150,
+         height=30,
+         font=("Segoe UI", 10)
+      ).pack(side="left", padx=5)
+      
+      # === PROGRESO ===
+      progress_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_BG_LIGHT, corner_radius=8)
+      progress_frame.pack(fill="x", pady=(0, 10))
+      
+      self.progress_label = ctk.CTkLabel(
+         progress_frame,
+         text="Listo para iniciar",
+         font=FONT_SUBTITLE,
+         text_color=COLOR_TEXT
+      )
+      self.progress_label.pack(pady=(10, 5))
+      
+      self.progress_bar = ctk.CTkProgressBar(
+         progress_frame,
+         width=730,
+         height=10,
+         corner_radius=5,
+         progress_color=COLOR_PRIMARY
+      )
+      self.progress_bar.pack(pady=(0, 10), padx=15)
+      self.progress_bar.set(0)
+      
+      # === LOG ===
+      log_label = ctk.CTkLabel(
+         main_frame,
+         text="📝 Registro de Actividad",
+         font=FONT_LABEL,
+         text_color=COLOR_TEXT,
+         anchor="w"
+      )
+      log_label.pack(pady=(5, 5), anchor="w")
+      
+      self.text_log = ctk.CTkTextbox(
+         main_frame,
+         width=750,
+         height=180,
+         font=FONT_CONSOLE,
+         fg_color=COLOR_BG_LIGHT,
+         text_color=COLOR_TEXT,
+         border_width=2,
+         border_color=COLOR_PRIMARY,
+         corner_radius=8
+      )
+      self.text_log.pack(pady=(0, 10))
+      
+      # === BOTONES ===
+      button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+      button_frame.pack(fill="x")
+      
+      self.btn_run = ctk.CTkButton(
+         button_frame,
+         text="▶ Iniciar Optimización",
+         command=self.on_start,
+         font=FONT_BUTTON,
+         height=40,
+         corner_radius=8,
+         fg_color=COLOR_PRIMARY,
+         hover_color="#1976d2"
+      )
+      self.btn_run.pack(side="left", expand=True, fill="x", padx=(0, 5))
+      
+      self.btn_cancel = ctk.CTkButton(
+         button_frame,
+         text="⏹ Cancelar",
+         command=self.cancel_operation,
+         font=FONT_BUTTON,
+         height=40,
+         corner_radius=8,
+         fg_color=COLOR_ERROR,
+         hover_color="#c62828",
+         state="disabled"
+      )
+      self.btn_cancel.pack(side="left", expand=True, fill="x", padx=(5, 0))
+   
+   def log(self, msg, level="INFO"):
+      """Registra mensaje en el log."""
+      icons = {
+         "INFO": "ℹ",
+         "SUCCESS": "✓",
+         "WARNING": "⚠",
+         "ERROR": "✗",
+         "PROGRESS": "⏳"
+      }
+      icon = icons.get(level, "•")
+      timestamp = datetime.now().strftime("%H:%M:%S")
+      
       self.text_log.configure(state="normal")
-      self.text_log.insert("end", msg + "\n")
+      self.text_log.insert("end", f"[{timestamp}] {icon} {msg}\n")
       self.text_log.see("end")
       self.text_log.configure(state="disabled")
-
+   
+   def select_all_tasks(self):
+      """Selecciona todas las tareas."""
+      for var in self.task_vars.values():
+         var.set(True)
+      self.log("Todas las tareas seleccionadas")
+   
+   def deselect_all_tasks(self):
+      """Deselecciona todas las tareas."""
+      for var in self.task_vars.values():
+         var.set(False)
+      self.log("Todas las tareas deseleccionadas")
+   
+   def select_quick_tasks(self):
+      """Selecciona solo tareas rápidas."""
+      quick_ids = ["cleanmgr", "temp_files", "defrag_c"]
+      for task_id, var in self.task_vars.items():
+         var.set(task_id in quick_ids)
+      self.log("Tareas rápidas seleccionadas")
+   
+   def check_prerequisites(self):
+      """Verifica prerequisitos."""
+      self.log("Verificando prerequisitos del sistema...")
+      
+      if not is_admin():
+         self.log("✗ Se requieren privilegios de administrador", "ERROR")
+         messagebox.showerror(
+               "Privilegios Insuficientes",
+               "Esta aplicación requiere privilegios de administrador.\n\n"
+               "Por favor, ejecute como administrador."
+         )
+         self.btn_run.configure(state="disabled")
+         return
+      
+      self.log("✓ Privilegios de administrador confirmados", "SUCCESS")
+      self.log("✓ Sistema listo para optimizar", "SUCCESS")
+   
    def on_start(self):
+      """Inicia el proceso de optimización."""
+      # Verificar que al menos una tarea esté seleccionada
+      selected = [tid for tid, var in self.task_vars.items() if var.get()]
+      
+      if not selected:
+         messagebox.showwarning(
+               "Sin Tareas",
+               "Debe seleccionar al menos una tarea para ejecutar."
+         )
+         return
+      
+      # Confirmar
+      response = messagebox.askyesno(
+         "Confirmar Optimización",
+         f"Se ejecutarán {len(selected)} tareas de optimización.\n\n"
+         "⚠ Algunas tareas pueden tardar varios minutos.\n"
+         "⚠ Se recomienda guardar todo su trabajo antes de continuar.\n\n"
+         "¿Desea continuar?"
+      )
+      
+      if not response:
+         self.log("✗ Operación cancelada por el usuario", "WARNING")
+         return
+      
+      # Iniciar en hilo separado
+      self.is_processing = True
+      self.should_cancel = False
       self.btn_run.configure(state="disabled")
+      self.btn_cancel.configure(state="normal")
+      
       self.text_log.configure(state="normal")
       self.text_log.delete("1.0", "end")
       self.text_log.configure(state="disabled")
-      self.label_status.configure(text="Ejecutando procesos...", text_color="yellow")
-      threading.Thread(target=self.optimize_system).start()
-
-   def optimize_system(self):
-      try:
-         self.log("[+] Ejecutando limpieza de disco para todos los usuarios (cleanmgr)...")
-         run_command('cleanmgr /tuneup:1')
-         self.log("[✓] Limpieza de disco completada.")
-
-         self.log("[+] Optimizando discos C: y D: (defrag)...")
-         self.run_and_log("defrag C: /O")
-         self.run_and_log("defrag D: /O")
-
-         self.log("[+] Eliminando archivos temporales...")
-         self.run_and_log('powershell Remove-Item -Path "$env:TEMP\\*" -Recurse -Force -ErrorAction SilentlyContinue')
-         self.run_and_log('powershell Remove-Item -Path "C:\\Windows\\Temp\\*" -Recurse -Force -ErrorAction SilentlyContinue')
-         self.run_and_log('powershell Remove-Item "C:\\Windows\\Prefetch\\*" -Force -ErrorAction SilentlyContinue')
-         self.run_and_log('powershell Clear-RecycleBin -Force')
-
-         self.log("[+] Reparando archivos del S.O (sfc /scannow). Esto puede tardar varios minutos...")
-         self.run_and_log("sfc /scannow")
-
-         self.log("[+] Reparando imagen del sistema con DISM. Esto puede tardar varios minutos...")
-         self.run_and_log("DISM /Online /Cleanup-Image /ScanHealth")
-         self.run_and_log("DISM /Online /Cleanup-Image /RestoreHealth")
-
-         self.log("[+] Actualizando todos los programas instalados excepto Java SE 8 341. Esto puede tardar varios minutos...")
-         update_programs = r'''
-         Set-ExecutionPolicy Bypass -Scope Process -Force
-         $raw = winget upgrade --accept-source-agreements --accept-package-agreements
-         $apps = $raw | Select-Object -Skip 2 | ForEach-Object {
-            ($_ -split '\s{2,}')[1]
-         }
-         foreach ($app in $apps) {
-            if ($app -and $app -ne "Id") {
-               if ($app -ne "Oracle.JavaRuntimeEnvironment") {
-                  Write-Host "Buscando nueva version de [$app]"
-                  winget upgrade --id $app --accept-source-agreements --accept-package-agreements -h
-               }
-               else {
-                  Write-Host "Omitiendo actualización de [$app]"
-               }
-            }
-         }
-
-         '''
-         self.run_and_log_ps(update_programs)
-
-         # Este tarea es opcional aunque es muy demorada
-         self.log("[+] Agendar diagnóstico de memoria RAM...")
-         self.run_and_log("mdsched.exe")
-
-         self.log("[✓] Optimización completada. Se recomienda reiniciar el equipo ahora mismo para que los cambios se apliquen.")
-
-         if messagebox.askyesno("Reiniciar", "¿Desea reiniciar el equipo ahora?"):
-            self.log("[!] Tarea de reinicio programada...")
-            run_command("shutdown /r /t 3")
-
-         self.finish_success()
-
-      except Exception as e:
-         self.log(f"[X] Error: {e}")
-         self.finish_fail()
-
-   def run_and_log(self, command):
-      self.log(f"Ejecutando: {command}")
-      out, err, code = run_command(command)
-      if out:
-         self.log(f"Salida: {out}")
-      if err:
-         self.log(f"Error: {err}")
-      self.log(f"Código de salida: {code}")
-      if code != 0:
-         self.log(f"[!] Comando '{command}' terminó con error.")
-
-   def run_and_log_ps(self, command):
-      ps_command = f'powershell -Command "{command}"'
-      self.log(f"Ejecutando (PowerShell): {command}")
-      try:
-         process = subprocess.run(
-               ps_command,
-               shell=True,
-               stdout=subprocess.PIPE,
-               stderr=subprocess.PIPE,
-               text=True
+      
+      thread = threading.Thread(target=self.optimize_system, daemon=True)
+      thread.start()
+   
+   def cancel_operation(self):
+      """Cancela la operación en curso."""
+      if self.is_processing:
+         response = messagebox.askyesno(
+               "Cancelar Operación",
+               "¿Está seguro de que desea cancelar?\n\n"
+               "La tarea actual se completará antes de detenerse."
          )
-         out = process.stdout.strip()
-         err = process.stderr.strip()
-         code = process.returncode
-         if out:
-               self.log(f"Salida: {out}")
-         if err:
-               self.log(f"Error: {err}")
-         self.log(f"Código de salida: {code}")
-         if code != 0:
-               self.log(f"[!] Comando PowerShell '{command}' terminó con error.")
-         return out, err, code
-
+         if response:
+               self.should_cancel = True
+               self.log("Cancelación solicitada...", "WARNING")
+               self.btn_cancel.configure(state="disabled")
+   
+   def optimize_system(self):
+      """Ejecuta las tareas de optimización."""
+      try:
+         self.log("━" * 75, "INFO")
+         self.log("🚀 Iniciando proceso de optimización del sistema", "INFO")
+         self.log("━" * 75, "INFO")
+         
+         # Obtener tareas seleccionadas
+         selected_tasks = [
+               task for task in OPTIMIZATION_TASKS
+               if self.task_vars[task["id"]].get()
+         ]
+         
+         total_tasks = len(selected_tasks)
+         completed = 0
+         
+         for task in selected_tasks:
+               if self.should_cancel:
+                  self.log("✗ Proceso cancelado por el usuario", "WARNING")
+                  break
+               
+               self.current_task = task
+               self.update_progress_label(f"Ejecutando: {task['name']}")
+               
+               self.log(f"─── {task['name']} ───", "PROGRESS")
+               self.log(f"Descripción: {task['description']}")
+               self.log(f"Tiempo estimado: {task['estimated_time']}")
+               
+               # Ejecutar tarea
+               if task["id"] == "winget_update":
+                  success = self.update_programs()
+               else:
+                  success = self.execute_task(task)
+               
+               completed += 1
+               progress = completed / total_tasks
+               self.progress_bar.set(progress)
+               
+               if success:
+                  self.log(f"✓ {task['name']} completado", "SUCCESS")
+               else:
+                  self.log(f"⚠ {task['name']} completado con advertencias", "WARNING")
+               
+               self.log("")  # Línea en blanco
+               time.sleep(0.5)
+         
+         # Proceso completado
+         if not self.should_cancel:
+               self.log("━" * 75, "INFO")
+               self.log("✓ Optimización completada exitosamente", "SUCCESS")
+               self.log("━" * 75, "INFO")
+               
+               # Preguntar por reinicio
+               self.after(100, self.ask_restart)
+         
       except Exception as e:
-         self.log(f"Excepción al ejecutar comando PowerShell: {e}")
-         return "", str(e), -1
+         self.log(f"✗ Error crítico: {str(e)}", "ERROR")
+      finally:
+         self.is_processing = False
+         self.current_task = None
+         self.after(100, lambda: self.btn_run.configure(state="normal"))
+         self.after(100, lambda: self.btn_cancel.configure(state="disabled"))
+         self.update_progress_label("Proceso finalizado")
+   
+   def execute_task(self, task):
+      """Ejecuta una tarea específica."""
+      command = task["command"]
+      
+      if isinstance(command, list):
+         # Múltiples comandos
+         all_success = True
+         for cmd in command:
+               self.log(f"  → {cmd[:60]}...")
+               code, out, err = run_command(cmd, timeout=300)
+               if code != 0:
+                  all_success = False
+                  if err:
+                     self.log(f"    Error: {err[:100]}", "ERROR")
+         return all_success
+      else:
+         # Comando único
+         self.log(f"  → {command[:60]}...")
+         code, out, err = run_command(command, timeout=1800)  # 30 min timeout
+         
+         if code == 0:
+               if out:
+                  lines = out.split('\n')[:5]  # Primeras 5 líneas
+                  for line in lines:
+                     if line.strip():
+                           self.log(f"    {line[:70]}")
+               return True
+         else:
+               if err:
+                  self.log(f"    Error: {err[:100]}", "ERROR")
+               return False
+   
+   def update_programs(self):
+      """Actualiza programas con winget."""
+      self.log("  → Buscando actualizaciones disponibles...")
+      
+      ps_script = '''
+$apps = winget upgrade --accept-source-agreements | Select-Object -Skip 2
+foreach ($line in $apps) {
+   if ($line -match '\\S') {
+      $parts = $line -split '\\s{2,}'
+      if ($parts.Count -gt 1) {
+         $id = $parts[1]
+         if ($id -and $id -ne "Id" -and $id -notmatch "Oracle.JavaRuntimeEnvironment") {
+               Write-Host "Actualizando: $id"
+               winget upgrade --id $id --silent --accept-source-agreements --accept-package-agreements
+         }
+      }
+   }
+}
+'''
+      
+      code, out, err = run_command(
+         f'powershell -Command "{ps_script}"',
+         timeout=1800
+      )
+      
+      if out:
+         lines = out.split('\n')
+         for line in lines[:10]:  # Primeras 10 líneas
+               if line.strip():
+                  self.log(f"    {line[:70]}")
+      
+      return code == 0
+   
+   def update_progress_label(self, text):
+      """Actualiza el label de progreso."""
+      self.progress_label.configure(text=text)
+   
+   def ask_restart(self):
+      """Pregunta si desea reiniciar."""
+      response = messagebox.askyesno(
+         "Optimización Completada",
+         "✓ La optimización ha finalizado exitosamente.\n\n"
+         "Se recomienda reiniciar el equipo para aplicar\n"
+         "todos los cambios correctamente.\n\n"
+         "¿Desea reiniciar ahora?"
+      )
+      
+      if response:
+         self.log("Reiniciando el sistema...", "INFO")
+         run_command("shutdown /r /t 10 /c \"Reinicio programado por Optimizador\"")
+         messagebox.showinfo(
+               "Reiniciando",
+               "El sistema se reiniciará en 10 segundos.\n\n"
+               "Guarde todo su trabajo."
+         )
+         self.after(2000, self.quit)
 
-   def finish_success(self):
-      self.label_status.configure(text="Trabajo hecho.", text_color="green")
-      self.update()
-      self.after(3000, self.close_app)
 
-   def finish_fail(self):
-      self.label_status.configure(text="Una parte falló.", text_color="red")
-      self.update()
-      self.after(3000, self.close_app)
-
-   def close_app(self):
-      self.destroy()
-      sys.exit(0)
-
+# ============================================================================
+# PUNTO DE ENTRADA
+# ============================================================================
 
 if __name__ == "__main__":
    app = OptimizeApp()

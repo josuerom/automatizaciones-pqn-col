@@ -1,433 +1,599 @@
-#!/usr/bin/env python3
 """
-   PQN_COL_Domain_Manager.py
-   Autor: Asistente Claude
-   Basado en: PQN_COL_Equipment_Renamer.py por Josué Romero
-   Empresa: Stefanini / PQN
-   Fecha: 12/Septiembre/2025
+PQN_COL_Equipment_Renamer.py - Versión Mejorada
+Autor: Josué Romero
+Empresa: Stefanini / PQN
+Fecha: 31/Octubre/2025
 
-   Descripción:
-   Este programa:
-   1. Crea punto de restauración
-   2. Obtiene el serial del equipo y genera el nombre estándar
-   3. Si está en dominio: solo renombra
-   4. Si NO está en dominio: renombra Y une al dominio
-   5. Se auto-ejecuta como administrador usando credenciales locales
-   6. Reinicia automáticamente tras cambios exitosos
+Descripción:
+Renombra equipos Windows basándose en el serial del BIOS con formato: XXXXXXX-PQN-COL
+Requiere privilegios de administrador.
 """
 
-import os
 import sys
-import time
+import os
 import subprocess
-import threading
+import ctypes
+import time
+import re
+import json
 import customtkinter as ctk
+from tkinter import messagebox
+from datetime import datetime
 from pathlib import Path
-from dotenv import load_dotenv
+import threading
 
-# --- Seteo de GUI ---
+# ============================================================================
+# CONFIGURACIÓN GLOBAL
+# ============================================================================
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-load_dotenv()
+APP_TITLE = "Renombrador de Equipos PQN-COL"
+APP_VERSION = "v2.0"
+APP_SIZE = "750x850"
 
-# --- Constantes ocultas ---
-DOMAIN = os.getenv('DOMAIN')
-DOMAIN_USER = os.getenv('DOMAIN_USER')
-DOMAIN_PASS = os.getenv('DOMAIN_PASS')
-LOCAL_ADMIN_USER = os.getenv('LOCAL_ADMIN_USER')
-LOCAL_ADMIN_PASS = os.getenv('LOCAL_ADMIN_PASS')
+# Colores
+COLOR_PRIMARY = "#2196f3"
+COLOR_SUCCESS = "#4caf50"
+COLOR_WARNING = "#ff9800"
+COLOR_ERROR = "#f44336"
+COLOR_BG_DARK = "#1a1a1a"
+COLOR_BG_LIGHT = "#2d2d2d"
+COLOR_TEXT = "#e0e0e0"
 
-APP_TITLE = "PQN-COL Domain Manager"
-APP_SIZE = "600x500"
+# Fuentes
+FONT_TITLE = ("Segoe UI", 26, "bold")
+FONT_SUBTITLE = ("Segoe UI", 11)
+FONT_CONSOLE = ("Consolas", 10)
+FONT_BUTTON = ("Segoe UI", 12, "bold")
+FONT_LABEL = ("Segoe UI", 11, "bold")
+
+# Configuración
+LOG_DIR = Path("C:/ProgramData/PQN_COL_Renamer")
+LOG_FILE = LOG_DIR / "renamer.log"
+BACKUP_FILE = LOG_DIR / "backup_config.json"
+SUFFIX = "-PQN-COL"
+SERIAL_LENGTH = 7
+MAX_NETBIOS_LENGTH = 15
+
+
+# ============================================================================
+# FUNCIONES AUXILIARES
+# ============================================================================
+
+def setup_logging():
+   """Crea el directorio de logs."""
+   try:
+      LOG_DIR.mkdir(parents=True, exist_ok=True)
+      return True
+   except:
+      return False
+
+
+def log_to_file(message, level="INFO"):
+   """Registra en archivo de log."""
+   try:
+      timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+      log_entry = f"[{timestamp}] [{level}] {message}\n"
+      with open(LOG_FILE, "a", encoding="utf-8") as f:
+         f.write(log_entry)
+   except:
+      pass
+
 
 def is_admin():
-    """Verifica si el script se ejecuta como administrador"""
-    try:
-        return os.getuid() == 0
-    except AttributeError:
-        import ctypes
-        return ctypes.windll.shell32.IsUserAnAdmin() != 0
+   """Verifica privilegios de administrador."""
+   try:
+      return ctypes.windll.shell32.IsUserAnAdmin()
+   except:
+      return False
 
-def run_as_admin():
-    """Re-ejecuta el script como administrador usando credenciales locales"""
-    try:
-        script_path = sys.argv[0]
-        if script_path.endswith('.py'):
-            # Si es un script .py
-            cmd = f'powershell.exe -Command "Start-Process python -ArgumentList \\"{script_path}\\" -Credential (New-Object System.Management.Automation.PSCredential(\\"{LOCAL_ADMIN_USER}\\", (ConvertTo-SecureString \\"{LOCAL_ADMIN_PASS}\\" -AsPlainText -Force))) -Verb RunAs -WindowStyle Hidden"'
-        else:
-            # Si es un .exe
-            cmd = f'powershell.exe -Command "Start-Process \\"{script_path}\\" -Credential (New-Object System.Management.Automation.PSCredential(\\"{LOCAL_ADMIN_USER}\\", (ConvertTo-SecureString \\"{LOCAL_ADMIN_PASS}\\" -AsPlainText -Force))) -Verb RunAs"'
-        
-        subprocess.run(cmd, shell=True, check=True)
-        sys.exit(0)
-    except Exception as e:
-        print(f"Error al ejecutar como administrador: {e}")
-        return False
 
-def run_powershell(script):
-    """Ejecuta un script de PowerShell y retorna (stdout, stderr, returncode)"""
-    try:
-        cmd = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script]
-        result = subprocess.run(cmd, capture_output=True, text=True, shell=True, timeout=60)
-        return result.stdout.strip(), result.stderr.strip(), result.returncode
-    except subprocess.TimeoutExpired:
-        return "", "Timeout ejecutando PowerShell", 1
-    except Exception as e:
-        return "", str(e), 1
+def run_powershell(command, timeout=30):
+   """
+   Ejecuta comando PowerShell.
+   
+   Returns:
+      tuple: (success: bool, output: str, error: str)
+   """
+   try:
+      result = subprocess.run(
+         ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+         capture_output=True,
+         text=True,
+         timeout=timeout
+      )
+      success = result.returncode == 0
+      return success, result.stdout.strip(), result.stderr.strip()
+   except subprocess.TimeoutExpired:
+      return False, "", "Timeout"
+   except Exception as e:
+      return False, "", str(e)
 
-def get_computer_serial():
-    """Obtiene el número de serie del equipo"""
-    scripts = [
-        "(Get-CimInstance -ClassName Win32_BIOS).SerialNumber",
-        "(Get-WmiObject -Class Win32_BIOS).SerialNumber",
-        "(Get-CimInstance -ClassName Win32_ComputerSystemProduct).IdentifyingNumber",
-        "(Get-WmiObject -Class Win32_ComputerSystemProduct).IdentifyingNumber"
-    ]
-    
-    for script in scripts:
-        try:
-            stdout, stderr, code = run_powershell(script)
-            if code == 0 and stdout.strip():
-                return stdout.strip()
-        except:
-            continue
-    
-    return None
+
+def get_bios_serial():
+   """Obtiene serial del BIOS usando PowerShell CIM."""
+   success, output, error = run_powershell(
+      "(Get-CimInstance -ClassName Win32_BIOS).SerialNumber.Trim()"
+   )
+   if success and output:
+      serial = re.sub(r'\s+', '', output).strip()
+      return serial if serial else None
+   return None
+
+
+def get_current_hostname():
+   """Obtiene el nombre actual del equipo."""
+   success, output, _ = run_powershell("$env:COMPUTERNAME")
+   return output.strip().upper() if success else None
+
+
+def get_manufacturer():
+   """Obtiene el fabricante del equipo."""
+   success, output, _ = run_powershell(
+      "(Get-CimInstance -ClassName Win32_ComputerSystem).Manufacturer.Trim()"
+   )
+   return output.strip() if success else "Desconocido"
+
+
+def validate_serial(serial):
+   """Valida el serial."""
+   if not serial:
+      return False
+   return bool(re.match(r'^[A-Za-z0-9\-]+$', serial))
+
+
+def validate_hostname(name):
+   """Valida el nombre del equipo."""
+   if not name:
+      return False, "Nombre vacío"
+   
+   if len(name) > MAX_NETBIOS_LENGTH:
+      return False, f"Excede {MAX_NETBIOS_LENGTH} caracteres"
+   
+   if not re.match(r'^[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]$', name) and len(name) > 1:
+      return False, "Caracteres inválidos"
+   
+   return True, ""
+
 
 def build_hostname(serial):
-    """Construye el nombre del host basado en el serial"""
-    if not serial:
-        return None
-    
-    # Extraer solo dígitos del serial
-    digits = ''.join(c for c in serial if c.isdigit())
-    
-    if len(digits) >= 7:
-        # Tomar los últimos 7 dígitos
-        last_seven = digits[-7:]
-    else:
-        # Si no hay 7 dígitos, tomar caracteres alfanuméricos
-        alnum = ''.join(c for c in serial if c.isalnum())
-        if len(alnum) >= 7:
-            last_seven = alnum[-7:].upper()
-        else:
-            # Rellenar con ceros si es necesario
-            last_seven = alnum.ljust(7, '0').upper()
-    
-    return f"{last_seven}-PQN-COL"
+   """Construye el nuevo hostname."""
+   if not validate_serial(serial):
+      return None
+   
+   if len(serial) >= SERIAL_LENGTH:
+      serial_part = serial[-SERIAL_LENGTH:]
+   else:
+      serial_part = serial.zfill(SERIAL_LENGTH)
+   
+   hostname = f"{serial_part}{SUFFIX}".upper()
+   
+   if len(hostname) > MAX_NETBIOS_LENGTH:
+      hostname = hostname[:MAX_NETBIOS_LENGTH]
+   
+   is_valid, error = validate_hostname(hostname)
+   return hostname if is_valid else None
 
-def create_restore_point():
-    """Crea un punto de restauración del sistema"""
-    script = '''
-    try {
-        # Habilitar restauración del sistema si no está habilitada
-        $status = Get-ComputerRestorePoint -ErrorAction SilentlyContinue
-        if (-not $status) {
-            Enable-ComputerRestore -Drive "C:\\" -Confirm:$false
-            Start-Sleep -Seconds 3
-        }
-        
-        # Crear punto de restauración
-        Checkpoint-Computer -Description "Cambio de nombre de host" -RestorePointType "MODIFY_SETTINGS" -ErrorAction Stop
-        Write-Output "SUCCESS: Punto de restauración creado"
-    } catch {
-        Write-Error "ERROR: No se pudo crear el punto de restauración: $($_.Exception.Message)"
-        exit 1
-    }
-    '''
-    return run_powershell(script)
 
-def check_domain_status():
-    """Verifica si el equipo está en el dominio"""
-    script = '''
-    try {
-        $cs = Get-CimInstance -ClassName Win32_ComputerSystem
-        $inDomain = $cs.PartOfDomain
-        $domainName = $cs.Domain
-        $computerName = $cs.Name
-        
-        Write-Output "DOMAIN_STATUS:$inDomain"
-        Write-Output "DOMAIN_NAME:$domainName"
-        Write-Output "COMPUTER_NAME:$computerName"
-    } catch {
-        Write-Error "ERROR: No se pudo verificar el estado del dominio"
-        exit 1
-    }
-    '''
-    
-    stdout, stderr, code = run_powershell(script)
-    if code != 0:
-        return False, None, None
-    
-    in_domain = False
-    domain_name = ""
-    computer_name = ""
-    
-    for line in stdout.split('\n'):
-        if line.startswith('DOMAIN_STATUS:'):
-            in_domain = line.split(':', 1)[1].strip().lower() == 'true'
-        elif line.startswith('DOMAIN_NAME:'):
-            domain_name = line.split(':', 1)[1].strip().lower()
-        elif line.startswith('COMPUTER_NAME:'):
-            computer_name = line.split(':', 1)[1].strip()
-    
-    return in_domain, domain_name, computer_name
+def save_backup(data):
+   """Guarda backup de configuración."""
+   try:
+      with open(BACKUP_FILE, 'w', encoding='utf-8') as f:
+         json.dump(data, f, indent=2)
+      return True
+   except:
+      return False
 
-def rename_computer_only(new_name):
-    """Renombra solo el equipo (cuando ya está en dominio)"""
-    script = f'''
-    try {{
-        Rename-Computer -NewName "{new_name}" -Force -ErrorAction Stop
-        Write-Output "SUCCESS: Equipo renombrado a {new_name}"
-    }} catch {{
-        Write-Error "ERROR: No se pudo renombrar el equipo: $($_.Exception.Message)"
-        exit 1
-    }}
-    '''
-    return run_powershell(script)
 
-def join_domain_and_rename(new_name):
-    """Une al dominio y renombra el equipo"""
-    script = f'''
-    try {{
-        $secpass = ConvertTo-SecureString "{DOMAIN_PASS}" -AsPlainText -Force
-        $cred = New-Object System.Management.Automation.PSCredential("{DOMAIN_USER}", $secpass)
-        
-        Add-Computer -DomainName "{DOMAIN}" -NewName "{new_name}" -Credential $cred -Force -ErrorAction Stop
-        Write-Output "SUCCESS: Equipo unido al dominio {DOMAIN} con nombre {new_name}"
-    }} catch {{
-        Write-Error "ERROR: No se pudo unir al dominio: $($_.Exception.Message)"
-        exit 1
-    }}
-    '''
-    return run_powershell(script)
+def rename_computer(new_name):
+   """Renombra el equipo."""
+   command = f'Rename-Computer -NewName "{new_name}" -Force -PassThru -ErrorAction Stop'
+   success, output, error = run_powershell(command, timeout=60)
+   return success
 
-def restart_computer():
-    """Reinicia el equipo inmediatamente"""
-    try:
-        subprocess.run("shutdown /r /t 0 /f", shell=True)
-    except Exception as e:
-        print(f"Error al reiniciar: {e}")
 
-class DomainManagerApp(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-        self.title(APP_TITLE)
-        self.geometry(APP_SIZE)
-        self.resizable(False, False)
-        
-        # Variables de estado
-        self.processing = False
-        
-        self.create_widgets()
-        
-        # Auto-ejecutar al iniciar
-        self.after(1000, self.auto_execute)
+def restart_computer(delay=15):
+   """Reinicia el equipo después del delay especificado."""
+   time.sleep(delay)
+   run_powershell("Restart-Computer -Force")
 
-    def create_widgets(self):
-        # Título
-        title_label = ctk.CTkLabel(
-            self, 
-            text="PQN-COL Domain Manager",
-            font=ctk.CTkFont(size=24, weight="bold")
-        )
-        title_label.pack(pady=(20, 5))
-        
-        # Subtítulo
-        subtitle_label = ctk.CTkLabel(
-            self,
-            text="Gestión automática de nombres de host y unión al dominio",
-            font=ctk.CTkFont(size=14)
-        )
-        subtitle_label.pack(pady=(0, 20))
-        
-        # Área de log
-        self.log_text = ctk.CTkTextbox(self, width=550, height=300)
-        self.log_text.pack(pady=10, padx=20)
-        
-        # Botón de ejecución manual
-        self.execute_btn = ctk.CTkButton(
-            self,
-            text="Ejecutar Manualmente",
-            command=self.manual_execute,
-            width=200,
-            height=35
-        )
-        self.execute_btn.pack(pady=10)
-        
-        # Estado
-        self.status_label = ctk.CTkLabel(
-            self,
-            text="Listo para ejecutar...",
-            font=ctk.CTkFont(size=14, weight="bold")
-        )
-        self.status_label.pack(pady=(10, 20))
 
-    def log_message(self, message):
-        """Agrega un mensaje al log"""
-        timestamp = time.strftime("%H:%M:%S")
-        self.log_text.configure(state="normal")
-        self.log_text.insert("end", f"[{timestamp}] {message}\n")
-        self.log_text.see("end")
-        self.log_text.configure(state="disabled")
-        self.update()
+# ============================================================================
+# CLASE PRINCIPAL
+# ============================================================================
 
-    def set_status(self, message, color="white"):
-        """Actualiza el mensaje de estado"""
-        self.status_label.configure(text=message, text_color=color)
-        self.update()
+class RenamerApp(ctk.CTk):
+   def __init__(self):
+      super().__init__()
+      
+      # Configuración
+      self.title(f"{APP_TITLE} {APP_VERSION}")
+      self.geometry(APP_SIZE)
+      self.resizable(False, False)
+      
+      # Variables
+      self.system_info = None
+      self.is_processing = False
+      
+      # Construir interfaz
+      self.build_ui()
+      
+      # Verificar prerequisitos
+      self.after(500, self.check_prerequisites)
+   
+   def build_ui(self):
+      """Construye la interfaz."""
+      
+      # Marco principal
+      main_frame = ctk.CTkFrame(self, fg_color=COLOR_BG_DARK)
+      main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+      
+      # === ENCABEZADO ===
+      header_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_PRIMARY, corner_radius=10)
+      header_frame.pack(fill="x", pady=(0, 15))
+      
+      title_label = ctk.CTkLabel(
+         header_frame,
+         text="💻 " + APP_TITLE,
+         font=FONT_TITLE,
+         text_color="white"
+      )
+      title_label.pack(pady=15)
+      
+      subtitle_label = ctk.CTkLabel(
+         header_frame,
+         text=f"Autor: Josué Romero  |  Stefanini / PQN  |  {APP_VERSION}",
+         font=FONT_SUBTITLE,
+         text_color="#e3f2fd"
+      )
+      subtitle_label.pack(pady=(0, 15))
+      
+      # === INFORMACIÓN ACTUAL ===
+      info_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_BG_LIGHT, corner_radius=8)
+      info_frame.pack(fill="x", pady=(0, 10))
+      
+      info_title = ctk.CTkLabel(
+         info_frame,
+         text="📋 Información Actual del Sistema",
+         font=FONT_LABEL,
+         text_color=COLOR_TEXT
+      )
+      info_title.pack(pady=(10, 10), anchor="w", padx=15)
+      
+      self.info_serial = ctk.CTkLabel(
+         info_frame,
+         text="Serial BIOS: Obteniendo...",
+         font=FONT_SUBTITLE,
+         text_color="#b0bec5",
+         anchor="w"
+      )
+      self.info_serial.pack(pady=3, padx=15, anchor="w")
+      
+      self.info_manufacturer = ctk.CTkLabel(
+         info_frame,
+         text="Fabricante: Obteniendo...",
+         font=FONT_SUBTITLE,
+         text_color="#b0bec5",
+         anchor="w"
+      )
+      self.info_manufacturer.pack(pady=3, padx=15, anchor="w")
+      
+      self.info_current_name = ctk.CTkLabel(
+         info_frame,
+         text="Nombre actual: Obteniendo...",
+         font=FONT_SUBTITLE,
+         text_color="#b0bec5",
+         anchor="w"
+      )
+      self.info_current_name.pack(pady=(3, 10), padx=15, anchor="w")
+      
+      # === NUEVO NOMBRE ===
+      preview_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_BG_LIGHT, corner_radius=8)
+      preview_frame.pack(fill="x", pady=(0, 10))
+      
+      preview_title = ctk.CTkLabel(
+         preview_frame,
+         text="🎯 Nuevo Nombre (Preview)",
+         font=FONT_LABEL,
+         text_color=COLOR_TEXT
+      )
+      preview_title.pack(pady=(10, 10), anchor="w", padx=15)
+      
+      self.preview_name = ctk.CTkLabel(
+         preview_frame,
+         text="--------",
+         font=("Consolas", 16, "bold"),
+         text_color=COLOR_PRIMARY
+      )
+      self.preview_name.pack(pady=(0, 5), padx=15, anchor="w")
+      
+      self.preview_validation = ctk.CTkLabel(
+         preview_frame,
+         text="",
+         font=("Segoe UI", 10),
+         text_color=COLOR_SUCCESS
+      )
+      self.preview_validation.pack(pady=(0, 10), padx=15, anchor="w")
+      
+      # === LOG ===
+      log_label = ctk.CTkLabel(
+         main_frame,
+         text="📝 Registro de Actividad",
+         font=FONT_LABEL,
+         text_color=COLOR_TEXT,
+         anchor="w"
+      )
+      log_label.pack(pady=(5, 5), anchor="w")
+      
+      self.text_log = ctk.CTkTextbox(
+         main_frame,
+         width=700,
+         height=250,
+         font=FONT_CONSOLE,
+         fg_color=COLOR_BG_LIGHT,
+         text_color=COLOR_TEXT,
+         border_width=2,
+         border_color=COLOR_PRIMARY,
+         corner_radius=8
+      )
+      self.text_log.pack(pady=(0, 10))
+      
+      # === ESTADO ===
+      self.status_label = ctk.CTkLabel(
+         main_frame,
+         text="Estado: Inicializando...",
+         font=FONT_SUBTITLE,
+         text_color=COLOR_WARNING
+      )
+      self.status_label.pack(pady=(0, 10))
+      
+      # === BOTONES ===
+      button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+      button_frame.pack(fill="x")
+      
+      self.btn_execute = ctk.CTkButton(
+         button_frame,
+         text="▶ Aplicar Cambios y Reiniciar",
+         command=self.on_execute,
+         font=FONT_BUTTON,
+         height=40,
+         corner_radius=8,
+         fg_color=COLOR_PRIMARY,
+         hover_color="#1976d2"
+      )
+      self.btn_execute.pack(side="left", expand=True, fill="x", padx=(0, 5))
+      
+      self.btn_export = ctk.CTkButton(
+         button_frame,
+         text="💾 Exportar Log",
+         command=self.export_log,
+         font=FONT_BUTTON,
+         height=40,
+         corner_radius=8,
+         fg_color=COLOR_BG_LIGHT,
+         hover_color="#424242"
+      )
+      self.btn_export.pack(side="left", expand=True, fill="x", padx=(5, 0))
+   
+   def log(self, message, level="INFO"):
+      """Registra mensaje en el log."""
+      icons = {"INFO": "ℹ", "SUCCESS": "✓", "WARNING": "⚠", "ERROR": "✗"}
+      icon = icons.get(level, "•")
+      
+      timestamp = datetime.now().strftime("%H:%M:%S")
+      
+      self.text_log.configure(state="normal")
+      self.text_log.insert("end", f"[{timestamp}] {icon} {message}\n")
+      self.text_log.see("end")
+      self.text_log.configure(state="disabled")
+      
+      # También registrar en archivo
+      log_to_file(message, level)
+   
+   def update_status(self, text, color=COLOR_TEXT):
+      """Actualiza el estado."""
+      self.status_label.configure(text=f"Estado: {text}", text_color=color)
+   
+   def check_prerequisites(self):
+      """Verifica prerequisitos."""
+      setup_logging()
+      self.log("Verificando prerequisitos del sistema...")
+      
+      # Verificar privilegios
+      if not is_admin():
+         self.log("✗ Se requieren privilegios de administrador", "ERROR")
+         self.update_status("Error: Sin privilegios", COLOR_ERROR)
+         messagebox.showerror(
+               "Privilegios Insuficientes",
+               "Esta aplicación requiere privilegios de administrador.\n\n"
+               "Por favor, ejecute como administrador."
+         )
+         self.btn_execute.configure(state="disabled")
+         return
+      
+      self.log("✓ Privilegios de administrador confirmados", "SUCCESS")
+      
+      # Obtener información del sistema
+      self.log("Obteniendo información del sistema...")
+      
+      serial = get_bios_serial()
+      if not serial:
+         self.log("✗ No se pudo obtener el serial del BIOS", "ERROR")
+         self.update_status("Error: Sin serial", COLOR_ERROR)
+         self.btn_execute.configure(state="disabled")
+         return
+      
+      current_name = get_current_hostname()
+      manufacturer = get_manufacturer()
+      new_name = build_hostname(serial)
+      
+      if not new_name:
+         self.log("✗ No se pudo construir un nombre válido", "ERROR")
+         self.update_status("Error: Nombre inválido", COLOR_ERROR)
+         self.btn_execute.configure(state="disabled")
+         return
+      
+      self.system_info = {
+         "serial": serial,
+         "manufacturer": manufacturer,
+         "current_name": current_name,
+         "new_name": new_name
+      }
+      
+      # Actualizar interfaz
+      self.info_serial.configure(
+         text=f"Serial BIOS: {serial}",
+         text_color=COLOR_SUCCESS
+      )
+      self.info_manufacturer.configure(
+         text=f"Fabricante: {manufacturer}",
+         text_color=COLOR_TEXT
+      )
+      self.info_current_name.configure(
+         text=f"Nombre actual: {current_name}",
+         text_color=COLOR_TEXT
+      )
+      
+      self.preview_name.configure(text=new_name)
+      
+      # Verificar si ya tiene el nombre correcto
+      if current_name == new_name:
+         self.log("✓ El equipo ya tiene el nombre correcto", "SUCCESS")
+         self.preview_validation.configure(
+               text="✓ El equipo ya está correctamente nombrado (no se requieren cambios)",
+               text_color=COLOR_SUCCESS
+         )
+         self.update_status("No se requieren cambios", COLOR_SUCCESS)
+         self.btn_execute.configure(state="disabled")
+      else:
+         self.log(f"✓ Nombre actual: {current_name}", "INFO")
+         self.log(f"✓ Nuevo nombre: {new_name}", "INFO")
+         self.preview_validation.configure(
+               text=f"✓ El nombre cambiará de '{current_name}' a '{new_name}'",
+               text_color=COLOR_WARNING
+         )
+         self.update_status("Listo para renombrar", COLOR_SUCCESS)
+      
+      self.log("━" * 70)
+      self.log("✓ Sistema listo", "SUCCESS")
+   
+   def export_log(self):
+      """Exporta el log a un archivo."""
+      try:
+         export_path = Path.home() / "Desktop" / f"Renamer_Log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+         
+         log_content = self.text_log.get("1.0", "end")
+         
+         with open(export_path, 'w', encoding='utf-8') as f:
+               f.write(f"LOG DEL RENOMBRADOR PQN-COL\n")
+               f.write(f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+               f.write("=" * 70 + "\n\n")
+               f.write(log_content)
+         
+         self.log(f"✓ Log exportado a: {export_path}", "SUCCESS")
+         messagebox.showinfo("Éxito", f"Log exportado correctamente:\n\n{export_path}")
+      except Exception as e:
+         self.log(f"✗ Error al exportar log: {str(e)}", "ERROR")
+         messagebox.showerror("Error", f"No se pudo exportar el log:\n\n{str(e)}")
+   
+   def on_execute(self):
+      """Ejecuta el proceso de renombrado."""
+      if self.is_processing:
+         return
+      
+      if not self.system_info:
+         messagebox.showerror("Error", "No hay información del sistema disponible.")
+         return
+      
+      new_name = self.system_info['new_name']
+      current_name = self.system_info['current_name']
+      
+      # Confirmar
+      response = messagebox.askyesno(
+         "Confirmar Renombrado",
+         f"¿Confirma el cambio de nombre?\n\n"
+         f"Nombre actual: {current_name}\n"
+         f"Nombre nuevo:  {new_name}\n\n"
+         f"⚠ El equipo se reiniciará automáticamente en 15 segundos.\n"
+         f"⚠ Guarde todo su trabajo antes de continuar.\n\n"
+         f"¿Continuar?"
+      )
+      
+      if not response:
+         self.log("✗ Operación cancelada por el usuario", "WARNING")
+         return
+      
+      # Ejecutar en hilo separado
+      self.is_processing = True
+      self.btn_execute.configure(state="disabled", text="⏳ Procesando...")
+      
+      thread = threading.Thread(
+         target=self.execute_rename,
+         args=(new_name,),
+         daemon=True
+      )
+      thread.start()
+   
+   def execute_rename(self, new_name):
+      """Ejecuta el renombrado."""
+      try:
+         self.log("━" * 70)
+         self.log("🚀 Iniciando proceso de renombrado", "INFO")
+         self.log("━" * 70)
+         
+         # Crear backup
+         self.log("Creando backup de configuración...")
+         backup_data = {
+               "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+               "old_name": self.system_info['current_name'],
+               "new_name": new_name,
+               "serial": self.system_info['serial']
+         }
+         
+         if save_backup(backup_data):
+               self.log("✓ Backup creado correctamente", "SUCCESS")
+         else:
+               self.log("⚠ No se pudo crear backup", "WARNING")
+         
+         # Renombrar
+         self.log(f"Aplicando nuevo nombre: {new_name}...")
+         
+         if rename_computer(new_name):
+               self.log("✓ Nombre aplicado correctamente", "SUCCESS")
+               self.log("⏳ El equipo se reiniciará en 15 segundos...", "WARNING")
+               
+               self.after(100, lambda: messagebox.showinfo(
+                  "Éxito",
+                  f"✓ Cambio aplicado correctamente\n\n"
+                  f"Nuevo nombre: {new_name}\n\n"
+                  f"El equipo se reiniciará en 15 segundos.\n"
+                  f"Guarde todo su trabajo."
+               ))
+               
+               # Reiniciar
+               restart_computer(15)
+         else:
+               raise Exception("Error al aplicar el nuevo nombre")
+      
+      except Exception as e:
+         self.log(f"✗ Error: {str(e)}", "ERROR")
+         self.after(100, lambda: messagebox.showerror(
+               "Error",
+               f"No se pudo completar el renombrado:\n\n{str(e)}"
+         ))
+      finally:
+         self.is_processing = False
+         self.after(100, lambda: self.btn_execute.configure(
+               state="normal",
+               text="▶ Aplicar Cambios y Reiniciar"
+         ))
 
-    def auto_execute(self):
-        """Ejecución automática al iniciar la aplicación"""
-        if not self.processing:
-            self.log_message("Iniciando ejecución automática...")
-            self.execute_process()
 
-    def manual_execute(self):
-        """Ejecución manual mediante botón"""
-        if not self.processing:
-            self.log_message("Iniciando ejecución manual...")
-            self.execute_process()
-
-    def execute_process(self):
-        """Ejecuta el proceso principal en un hilo separado"""
-        if self.processing:
-            return
-        
-        self.processing = True
-        self.execute_btn.configure(state="disabled")
-        self.set_status("Procesando...", "yellow")
-        
-        thread = threading.Thread(target=self.main_process)
-        thread.daemon = True
-        thread.start()
-
-    def main_process(self):
-        """Proceso principal del programa"""
-        try:
-            # Paso 1: Crear punto de restauración
-            self.log_message("=== CREANDO PUNTO DE RESTAURACIÓN ===")
-            self.set_status("Creando punto de restauración...", "yellow")
-            
-            stdout, stderr, code = create_restore_point()
-            if code == 0:
-                self.log_message("✓ Punto de restauración creado exitosamente")
-            else:
-                self.log_message(f"⚠ Advertencia al crear punto de restauración: {stderr}")
-                self.log_message("Continuando con el proceso...")
-
-            # Paso 2: Obtener serial y generar nombre
-            self.log_message("\n=== OBTENIENDO INFORMACIÓN DEL EQUIPO ===")
-            self.set_status("Obteniendo serial del equipo...", "yellow")
-            
-            serial = get_computer_serial()
-            if not serial:
-                self.log_message("✗ ERROR: No se pudo obtener el serial del equipo")
-                self.finish_error()
-                return
-            
-            self.log_message(f"✓ Serial obtenido: {serial}")
-            
-            new_hostname = build_hostname(serial)
-            if not new_hostname:
-                self.log_message("✗ ERROR: No se pudo generar el nombre del host")
-                self.finish_error()
-                return
-            
-            self.log_message(f"✓ Nombre de host generado: {new_hostname}")
-
-            # Paso 3: Verificar estado del dominio
-            self.log_message("\n=== VERIFICANDO ESTADO DEL DOMINIO ===")
-            self.set_status("Verificando estado del dominio...", "yellow")
-            
-            in_domain, domain_name, current_name = check_domain_status()
-            
-            self.log_message(f"✓ Nombre actual: {current_name}")
-            self.log_message(f"✓ En dominio: {'Sí' if in_domain else 'No'}")
-            self.log_message(f"✓ Dominio actual: {domain_name if domain_name else 'N/A'}")
-
-            # Verificar si ya tiene el nombre correcto
-            if current_name.upper() == new_hostname.upper():
-                self.log_message(f"✓ El equipo ya tiene el nombre correcto: {new_hostname}")
-                if in_domain and domain_name.lower() == DOMAIN.lower():
-                    self.log_message("✓ El equipo ya está correctamente configurado")
-                    self.finish_success("Configuración ya correcta - No se requieren cambios")
-                    return
-
-            # Paso 4: Ejecutar acción según estado
-            restart_required = False
-            
-            if in_domain and domain_name.lower() == DOMAIN.lower():
-                # Solo renombrar
-                self.log_message(f"\n=== RENOMBRANDO EQUIPO ===")
-                self.set_status("Renombrando equipo...", "yellow")
-                
-                stdout, stderr, code = rename_computer_only(new_hostname)
-                if code == 0:
-                    self.log_message(f"✓ Equipo renombrado exitosamente a: {new_hostname}")
-                    restart_required = True
-                else:
-                    self.log_message(f"✗ ERROR al renombrar: {stderr}")
-                    self.finish_error()
-                    return
-                    
-            else:
-                # Unir al dominio y renombrar
-                self.log_message(f"\n=== UNIENDO AL DOMINIO Y RENOMBRANDO ===")
-                self.set_status("Uniendo al dominio...", "yellow")
-                
-                stdout, stderr, code = join_domain_and_rename(new_hostname)
-                if code == 0:
-                    self.log_message(f"✓ Equipo unido al dominio {DOMAIN} con nombre: {new_hostname}")
-                    restart_required = True
-                else:
-                    self.log_message(f"✗ ERROR al unir al dominio: {stderr}")
-                    self.finish_error()
-                    return
-
-            # Paso 5: Reiniciar si es necesario
-            if restart_required:
-                self.log_message("\n=== REINICIANDO EQUIPO ===")
-                self.set_status("Reiniciando equipo en 10 segundos...", "green")
-                
-                for i in range(10, 0, -1):
-                    self.log_message(f"Reiniciando en {i} segundos...")
-                    time.sleep(1)
-                
-                self.log_message("✓ Reiniciando equipo...")
-                restart_computer()
-            
-        except Exception as e:
-            self.log_message(f"✗ ERROR INESPERADO: {str(e)}")
-            self.finish_error()
-
-    def finish_success(self, message="Proceso completado exitosamente"):
-        """Finaliza el proceso con éxito"""
-        self.processing = False
-        self.set_status(message, "green")
-        self.execute_btn.configure(state="normal")
-        self.log_message(f"\n✓ {message}")
-
-    def finish_error(self):
-        """Finaliza el proceso con error"""
-        self.processing = False
-        self.set_status("Proceso finalizado con errores", "red")
-        self.execute_btn.configure(state="normal")
-        self.log_message("\n✗ Proceso finalizado con errores")
-
-def main():
-    # Verificar si se ejecuta como administrador
-    if not is_admin():
-        print("El programa necesita ejecutarse como administrador...")
-        print("Intentando elevar privilegios...")
-        run_as_admin()
-        return
-
-    # Crear y ejecutar la aplicación
-    app = DomainManagerApp()
-    app.mainloop()
+# ============================================================================
+# PUNTO DE ENTRADA
+# ============================================================================
 
 if __name__ == "__main__":
-    main()
+   app = RenamerApp()
+   app.mainloop()
