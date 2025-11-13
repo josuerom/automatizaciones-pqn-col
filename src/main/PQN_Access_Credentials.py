@@ -1,73 +1,142 @@
 """
-PQN_Access_Credentials.py - Versión Mejorada
+PQN_Access_Credentials.py - Versión Profesional Mejorada
 Autor: Josué Romero
 Empresa: Stefanini / PQN
-Fecha: 31/Octubre/2025
+Fecha: 06/Noviembre/2025
+Versión: 3.0 Professional Edition
+
+Licencia: Propiedad de Stefanini / PQN - Todos los derechos reservados
+Copyright © 2025 Josué Romero - Stefanini / PQN
 
 Descripción:
-Generador automático de credenciales corporativas de acceso.
+Sistema automatizado para generación de credenciales corporativas de acceso
+con tabla profesional y logos corporativos integrados en PDF.
 """
 
 import os
 import platform
 import customtkinter as ctk
 from tkinter import messagebox
+from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import Table, TableStyle, Paragraph, Spacer, SimpleDocTemplate
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_LEFT, TA_CENTER
-from reportlab.lib.units import inch
 from pathlib import Path
 import re
 import random
 import string
 from datetime import datetime
+import hashlib
+import sys
+import ctypes
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
+from email.utils import formatdate
+
+# ============================================================================
+# INFORMACIÓN DE COPYRIGHT Y LICENCIA
+# ============================================================================
+__version__ = "3.0"
+__author__ = "Josué Romero"
+__company__ = "Stefanini / PQN"
+__copyright__ = "Copyright © 2025 Josué Romero - Stefanini / PQN"
+__license__ = "Proprietary - Todos los derechos reservados"
+__status__ = "Production"
 
 # ============================================================================
 # CONFIGURACIÓN GLOBAL
 # ============================================================================
 ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("green")
+ctk.set_default_color_theme("blue")
 
 APP_TITLE = "Generador de Credenciales PQN"
-APP_VERSION = "v2.0"
-APP_SIZE = "650x920"
+APP_VERSION = f"v{__version__}"
+APP_SIZE = "700x950"
 
-# Colores
-COLOR_PRIMARY = "#66bb6a"
-COLOR_SUCCESS = "#4caf50"
-COLOR_WARNING = "#ff9800"
-COLOR_ERROR = "#f44336"
-COLOR_BG_DARK = "#1a1a1a"
-COLOR_BG_LIGHT = "#2d2d2d"
-COLOR_TEXT = "#e0e0e0"
+# Paleta de colores profesional (Morado-Púrpura-Oscuro)
+COLOR_PRIMARY = "#6a1b9a"         # Morado profundo
+COLOR_SECONDARY = "#8e24aa"       # Morado medio
+COLOR_ACCENT = "#ab47bc"          # Morado claro
+COLOR_SUCCESS = "#00e676"         # Verde éxito
+COLOR_WARNING = "#ffc107"         # Amarillo advertencia
+COLOR_ERROR = "#d32f2f"           # Rojo error
+COLOR_BG_DARK = "#0a0a0a"         # Negro profundo
+COLOR_BG_MEDIUM = "#1a1a1a"       # Negro medio
+COLOR_BG_LIGHT = "#2d2d2d"        # Gris oscuro
+COLOR_TEXT_WHITE = "#ffffff"      # Texto blanco
+COLOR_TEXT_GRAY = "#b0bec5"       # Texto gris claro
 
-# Fuentes
-FONT_TITLE = ("Segoe UI", 26, "bold")
-FONT_SUBTITLE = ("Segoe UI", 11)
-FONT_BUTTON = ("Segoe UI", 12, "bold")
-FONT_LABEL = ("Segoe UI", 11, "bold")
+# Fuentes (Incrementadas +2px según requerimiento)
+FONT_TITLE = ("Segoe UI", 28, "bold")          # Era 26
+FONT_SUBTITLE = ("Segoe UI", 13)               # Era 11
+FONT_BUTTON = ("Segoe UI", 14, "bold")         # Era 12
+FONT_LABEL = ("Segoe UI", 13, "bold")          # Era 11
+FONT_INFO = ("Segoe UI", 13)                   # Era 11
+FONT_CONSOLE = ("Consolas", 12)                # Era 10
 
 # Constantes
 DOMAIN = "@spradling.group"
+
+# Rutas de logos (relativas al script)
+LOGO_DIR = Path(__file__).parent.parent.parent / "static" / "logos"
+LOGO_PROQUINAL = LOGO_DIR / "proquinal.png"
+LOGO_MAYTE = LOGO_DIR / "mayte.png"
+LOGO_STEFANINI = LOGO_DIR / "stefanini.png"
+
+
+# ============================================================================
+# FUNCIONES DE ELEVACIÓN DE PRIVILEGIOS
+# ============================================================================
+
+def is_admin():
+   """Verifica si el script se está ejecutando como administrador."""
+   try:
+      return ctypes.windll.shell32.IsUserAnAdmin()
+   except:
+      return False
+
+
+def run_as_admin():
+   """Reinicia el script con privilegios de administrador."""
+   try:
+      if sys.argv[0].endswith('.py'):
+         ctypes.windll.shell32.ShellExecuteW(
+               None, "runas", sys.executable, f'"{sys.argv[0]}"', None, 1
+         )
+      else:
+         ctypes.windll.shell32.ShellExecuteW(
+               None, "runas", sys.executable, " ".join(sys.argv), None, 1
+         )
+      sys.exit(0)
+   except Exception as e:
+      messagebox.showerror(
+         "Error de Privilegios",
+         f"No se pudo elevar privilegios:\n{e}"
+      )
+      sys.exit(1)
 
 
 # ============================================================================
 # FUNCIONES AUXILIARES
 # ============================================================================
 
+def calculate_file_hash(filepath):
+   """Calcula el hash SHA-256 de un archivo."""
+   try:
+      sha256_hash = hashlib.sha256()
+      with open(filepath, "rb") as f:
+         for byte_block in iter(lambda: f.read(4096), b""):
+               sha256_hash.update(byte_block)
+      return sha256_hash.hexdigest()
+   except:
+      return "N/A"
+
+
 def validate_username(username):
-   """
-   Valida formato de nombre de usuario.
-   
-   Returns:
-      tuple: (is_valid: bool, error_msg: str)
-   """
+   """Valida formato de nombre de usuario."""
    if not username:
       return False, "El usuario no puede estar vacío"
    
-   # Solo letras minúsculas, números y guiones
    if not re.match(r'^[a-z0-9\-]+$', username):
       return False, "Solo letras minúsculas, números y guiones"
    
@@ -81,16 +150,10 @@ def validate_username(username):
 
 
 def validate_email_prefix(email_prefix):
-   """
-   Valida prefijo de correo.
-   
-   Returns:
-      tuple: (is_valid: bool, error_msg: str)
-   """
+   """Valida prefijo de correo."""
    if not email_prefix:
       return False, "El correo no puede estar vacío"
    
-   # Solo letras minúsculas, números, puntos y guiones
    if not re.match(r'^[a-z0-9\.\-]+$', email_prefix):
       return False, "Solo letras minúsculas, números, puntos y guiones"
    
@@ -107,12 +170,7 @@ def validate_email_prefix(email_prefix):
 
 
 def validate_password(password):
-   """
-   Valida que la contraseña cumpla con requisitos mínimos.
-   
-   Returns:
-      tuple: (is_valid: bool, error_msg: str)
-   """
+   """Valida que la contraseña cumpla con requisitos mínimos."""
    if not password:
       return False, "La contraseña no puede estar vacía"
    
@@ -135,16 +193,7 @@ def validate_password(password):
 
 
 def generate_secure_password(length=12):
-   """
-   Genera una contraseña segura aleatoria.
-   
-   Args:
-      length: Longitud de la contraseña
-      
-   Returns:
-      str: Contraseña generada
-   """
-   # Asegurar que tenga de cada tipo
+   """Genera una contraseña segura aleatoria."""
    password = [
       random.choice(string.ascii_uppercase),
       random.choice(string.ascii_lowercase),
@@ -152,11 +201,9 @@ def generate_secure_password(length=12):
       random.choice('!@#$%^&*()_+-=')
    ]
    
-   # Completar con caracteres aleatorios
    all_chars = string.ascii_letters + string.digits + '!@#$%^&*()_+-='
    password += [random.choice(all_chars) for _ in range(length - 4)]
    
-   # Mezclar
    random.shuffle(password)
    
    return ''.join(password)
@@ -168,9 +215,9 @@ def open_pdf(path):
    try:
       if sistema == "Windows":
          os.startfile(path)
-      elif sistema == "Darwin":  # macOS
+      elif sistema == "Darwin":
          os.system(f"open '{path}'")
-      else:  # Linux
+      else:
          os.system(f"xdg-open '{path}'")
       return True
    except:
@@ -178,19 +225,19 @@ def open_pdf(path):
 
 
 # ============================================================================
-# CLASE PRINCIPAL
+# CLASE PRINCIPAL DE LA APLICACIÓN
 # ============================================================================
 
 class CredencialesApp(ctk.CTk):
    def __init__(self):
       super().__init__()
       
-      # Configuración
+      # Configuración de ventana
       self.title(f"{APP_TITLE} {APP_VERSION}")
       self.geometry(APP_SIZE)
       self.resizable(False, False)
       
-      # Variables
+      # Variables de estado
       self.password_visible = False
       self.is_generating = False
       
@@ -198,61 +245,84 @@ class CredencialesApp(ctk.CTk):
       self.build_ui()
    
    def build_ui(self):
-      """Construye la interfaz."""
+      """Construye la interfaz de usuario moderna y profesional."""
       
       # Marco principal
       main_frame = ctk.CTkFrame(self, fg_color=COLOR_BG_DARK)
-      main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+      main_frame.pack(fill="both", expand=True, padx=20, pady=20)
       
-      # === ENCABEZADO ===
-      header_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_PRIMARY, corner_radius=10)
-      header_frame.pack(fill="x", pady=(0, 15))
+      # === ENCABEZADO MODERNO ===
+      header_frame = ctk.CTkFrame(
+         main_frame,
+         fg_color=COLOR_PRIMARY,
+         corner_radius=12,
+         border_width=2,
+         border_color=COLOR_ACCENT
+      )
+      header_frame.pack(fill="x", pady=(0, 20))
       
       title_label = ctk.CTkLabel(
          header_frame,
          text="🔐 " + APP_TITLE,
          font=FONT_TITLE,
-         text_color="white"
+         text_color=COLOR_TEXT_WHITE
       )
-      title_label.pack(pady=15)
+      title_label.pack(pady=(20, 5))
       
       subtitle_label = ctk.CTkLabel(
          header_frame,
-         text=f"Autor: Josué Romero  |  Stefanini / PQN  |  {APP_VERSION}",
+         text=f"{__company__} | {__author__} | {APP_VERSION}",
          font=FONT_SUBTITLE,
-         text_color="#e8f5e9"
+         text_color=COLOR_ACCENT
       )
-      subtitle_label.pack(pady=(0, 15))
+      subtitle_label.pack(pady=(0, 10))
+      
+      copyright_label = ctk.CTkLabel(
+         header_frame,
+         text=__copyright__,
+         font=("Segoe UI", 11),
+         text_color=COLOR_TEXT_GRAY
+      )
+      copyright_label.pack(pady=(0, 15))
       
       # === FORMULARIO ===
-      form_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_BG_LIGHT, corner_radius=8)
-      form_frame.pack(fill="x", pady=(0, 10))
+      form_frame = ctk.CTkFrame(
+         main_frame,
+         fg_color=COLOR_BG_MEDIUM,
+         corner_radius=10
+      )
+      form_frame.pack(fill="x", pady=(0, 15))
       
       form_title = ctk.CTkLabel(
          form_frame,
          text="📝 Información de las Credenciales",
          font=FONT_LABEL,
-         text_color=COLOR_TEXT
+         text_color=COLOR_TEXT_WHITE
       )
-      form_title.pack(pady=(15, 15), anchor="w", padx=15)
+      form_title.pack(pady=(15, 15), anchor="w", padx=20)
       
       # Correo corporativo
       ctk.CTkLabel(
          form_frame,
          text="Correo corporativo (sin @spradling.group):",
-         font=FONT_SUBTITLE,
-         text_color=COLOR_TEXT
-      ).pack(pady=(0, 5), padx=15, anchor="w")
+         font=FONT_INFO,
+         text_color=COLOR_TEXT_WHITE
+      ).pack(pady=(0, 8), padx=20, anchor="w")
       
       correo_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
-      correo_frame.pack(pady=(0, 5), padx=15, anchor="w")
+      correo_frame.pack(pady=(0, 8), padx=20, anchor="w")
       
       self.correo_entry = ctk.CTkEntry(
          correo_frame,
          placeholder_text="Ej: juan.perez",
-         width=300,
-         height=35,
-         font=FONT_SUBTITLE
+         width=350,
+         height=40,
+         font=FONT_INFO,
+         fg_color=COLOR_BG_LIGHT,
+         text_color=COLOR_TEXT_WHITE,
+         placeholder_text_color=COLOR_TEXT_GRAY,
+         border_color=COLOR_SECONDARY,
+         border_width=2
       )
       self.correo_entry.pack(side="left")
       self.correo_entry.bind("<KeyRelease>", lambda e: self.validate_form())
@@ -260,35 +330,40 @@ class CredencialesApp(ctk.CTk):
       ctk.CTkLabel(
          correo_frame,
          text=DOMAIN,
-         font=("Segoe UI", 11, "bold"),
+         font=("Segoe UI", 13, "bold"),
          text_color=COLOR_PRIMARY
-      ).pack(side="left", padx=(5, 0))
+      ).pack(side="left", padx=(8, 0))
       
       self.correo_validation = ctk.CTkLabel(
          form_frame,
          text="",
-         font=("Segoe UI", 9),
+         font=("Segoe UI", 11),
          text_color=COLOR_WARNING
       )
-      self.correo_validation.pack(pady=(0, 10), padx=15, anchor="w")
+      self.correo_validation.pack(pady=(0, 15), padx=20, anchor="w")
       
       # Contraseña
       ctk.CTkLabel(
          form_frame,
          text="Contraseña de acceso:",
-         font=FONT_SUBTITLE,
-         text_color=COLOR_TEXT
-      ).pack(pady=(0, 5), padx=15, anchor="w")
+         font=FONT_INFO,
+         text_color=COLOR_TEXT_WHITE
+      ).pack(pady=(0, 8), padx=20, anchor="w")
       
       pass_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
-      pass_frame.pack(pady=(0, 5), padx=15, anchor="w")
+      pass_frame.pack(pady=(0, 8), padx=20, anchor="w")
       
       self.pass_entry = ctk.CTkEntry(
          pass_frame,
          placeholder_text="Mínimo 8 caracteres",
-         width=300,
-         height=35,
-         font=FONT_SUBTITLE,
+         width=350,
+         height=40,
+         font=FONT_INFO,
+         fg_color=COLOR_BG_LIGHT,
+         text_color=COLOR_TEXT_WHITE,
+         placeholder_text_color=COLOR_TEXT_GRAY,
+         border_color=COLOR_SECONDARY,
+         border_width=2,
          show="●"
       )
       self.pass_entry.pack(side="left")
@@ -298,92 +373,104 @@ class CredencialesApp(ctk.CTk):
          pass_frame,
          text="👁",
          command=self.toggle_password_visibility,
-         width=35,
-         height=35,
-         font=("Segoe UI", 14)
+         width=40,
+         height=40,
+         font=("Segoe UI", 16),
+         fg_color=COLOR_BG_LIGHT,
+         hover_color=COLOR_BG_MEDIUM
       )
-      self.toggle_pass_btn.pack(side="left", padx=(5, 0))
+      self.toggle_pass_btn.pack(side="left", padx=(8, 0))
       
       self.generate_pass_btn = ctk.CTkButton(
          pass_frame,
          text="🎲",
          command=self.generate_password,
-         width=35,
-         height=35,
-         font=("Segoe UI", 14),
+         width=40,
+         height=40,
+         font=("Segoe UI", 16),
          fg_color=COLOR_PRIMARY,
-         hover_color="#43a047"
+         hover_color=COLOR_SECONDARY
       )
-      self.generate_pass_btn.pack(side="left", padx=(5, 0))
+      self.generate_pass_btn.pack(side="left", padx=(8, 0))
       
       self.pass_validation = ctk.CTkLabel(
          form_frame,
          text="",
-         font=("Segoe UI", 9),
+         font=("Segoe UI", 11),
          text_color=COLOR_WARNING
       )
-      self.pass_validation.pack(pady=(0, 10), padx=15, anchor="w")
+      self.pass_validation.pack(pady=(0, 15), padx=20, anchor="w")
       
       # Usuario de Windows/VPN
       ctk.CTkLabel(
          form_frame,
-         text="Usuario de Windows:",
-         font=FONT_SUBTITLE,
-         text_color=COLOR_TEXT
-      ).pack(pady=(0, 5), padx=15, anchor="w")
+         text="Usuario de Windows/VPN:",
+         font=FONT_INFO,
+         text_color=COLOR_TEXT_WHITE
+      ).pack(pady=(0, 8), padx=20, anchor="w")
       
       self.user_entry = ctk.CTkEntry(
          form_frame,
-         placeholder_text="Ej: perez-juan",
-         width=300,
-         height=35,
-         font=FONT_SUBTITLE
+         placeholder_text="Ej: perez-pepito",
+         width=450,
+         height=40,
+         font=FONT_INFO,
+         fg_color=COLOR_BG_LIGHT,
+         text_color=COLOR_TEXT_WHITE,
+         placeholder_text_color=COLOR_TEXT_GRAY,
+         border_color=COLOR_SECONDARY,
+         border_width=2
       )
-      self.user_entry.pack(pady=(0, 5), padx=15, anchor="w")
+      self.user_entry.pack(pady=(0, 8), padx=20, anchor="w")
       self.user_entry.bind("<KeyRelease>", lambda e: self.validate_form())
       self.user_entry.bind("<Return>", lambda e: self.generate_pdf())
       
       self.user_validation = ctk.CTkLabel(
          form_frame,
          text="",
-         font=("Segoe UI", 9),
+         font=("Segoe UI", 11),
          text_color=COLOR_WARNING
       )
-      self.user_validation.pack(pady=(0, 15), padx=15, anchor="w")
+      self.user_validation.pack(pady=(0, 15), padx=20, anchor="w")
       
       # === VISTA PREVIA ===
-      preview_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_BG_LIGHT, corner_radius=8)
-      preview_frame.pack(fill="x", pady=(0, 10))
+      preview_frame = ctk.CTkFrame(
+         main_frame,
+         fg_color=COLOR_BG_MEDIUM,
+         corner_radius=10
+      )
+      preview_frame.pack(fill="x", pady=(0, 15))
       
       preview_title = ctk.CTkLabel(
          preview_frame,
          text="👁 Vista Previa",
          font=FONT_LABEL,
-         text_color=COLOR_TEXT
+         text_color=COLOR_TEXT_WHITE
       )
-      preview_title.pack(pady=(10, 10), anchor="w", padx=15)
+      preview_title.pack(pady=(15, 10), anchor="w", padx=20)
       
       self.preview_text = ctk.CTkTextbox(
          preview_frame,
-         width=590,
-         height=200,
-         font=("Consolas", 10),
-         fg_color="#1e1e1e",
+         width=640,
+         height=220,
+         font=FONT_CONSOLE,
+         fg_color=COLOR_BG_LIGHT,
          text_color=COLOR_SUCCESS,
-         border_width=1,
-         border_color="#424242"
+         border_width=2,
+         border_color=COLOR_SECONDARY
       )
-      self.preview_text.pack(pady=(0, 15), padx=15)
+      self.preview_text.pack(pady=(0, 15), padx=20)
       self.preview_text.insert("end", "Complete los campos para ver la vista previa...\n")
+      self.preview_text.configure(state="disabled")
       
       # === VALIDACIÓN GENERAL ===
       self.validation_general = ctk.CTkLabel(
          main_frame,
          text="",
-         font=("Segoe UI", 10, "bold"),
+         font=("Segoe UI", 12, "bold"),
          text_color=COLOR_WARNING
       )
-      self.validation_general.pack(pady=(0, 10))
+      self.validation_general.pack(pady=(0, 15))
       
       # === BOTONES ===
       button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
@@ -391,37 +478,48 @@ class CredencialesApp(ctk.CTk):
       
       self.generate_button = ctk.CTkButton(
          button_frame,
-         text="▶ Generar PDF",
+         text="🚀 Generar PDF de Credenciales",
          command=self.generate_pdf,
          font=FONT_BUTTON,
-         height=40,
-         corner_radius=8,
+         height=50,
+         corner_radius=10,
          fg_color=COLOR_PRIMARY,
-         hover_color="#43a047",
+         hover_color=COLOR_SECONDARY,
+         border_width=3,
+         border_color=COLOR_ACCENT,
+         text_color=COLOR_TEXT_WHITE,
          state="disabled"
       )
-      self.generate_button.pack(side="left", expand=True, fill="x", padx=(0, 5))
+      self.generate_button.pack(side="left", expand=True, fill="x", padx=(0, 8))
       
       self.clear_button = ctk.CTkButton(
          button_frame,
-         text="🗑 Limpiar",
+         text="🗑️ Limpiar Campos",
          command=self.clear_fields,
          font=FONT_BUTTON,
-         height=40,
-         corner_radius=8,
+         height=50,
+         corner_radius=10,
          fg_color=COLOR_BG_LIGHT,
-         hover_color="#424242"
+         hover_color=COLOR_BG_MEDIUM,
+         border_width=2,
+         border_color=COLOR_SECONDARY,
+         text_color=COLOR_TEXT_WHITE
       )
-      self.clear_button.pack(side="left", expand=True, fill="x", padx=(5, 0))
+      self.clear_button.pack(side="left", fill="x", padx=(8, 0))
+      
+      # Atajos de teclado
+      self.bind("<Escape>", lambda e: self.quit())
    
    def toggle_password_visibility(self):
       """Alterna visibilidad de la contraseña."""
       if self.password_visible:
          self.pass_entry.configure(show="●")
          self.password_visible = False
+         self.toggle_pass_btn.configure(text="👁")
       else:
          self.pass_entry.configure(show="")
          self.password_visible = True
+         self.toggle_pass_btn.configure(text="🙈")
    
    def generate_password(self):
       """Genera una contraseña segura."""
@@ -431,12 +529,13 @@ class CredencialesApp(ctk.CTk):
       self.validate_form()
       messagebox.showinfo(
          "Contraseña Generada",
-         f"Se ha generado una contraseña segura.\n\n"
-         f"⚠ Anótela antes de continuar:\n{password}"
+         f"Se ha generado una contraseña segura:\n\n"
+         f"🔑 {password}\n\n"
+         f"⚠️ IMPORTANTE: Anótela antes de continuar."
       )
    
    def clear_fields(self):
-      """Limpia todos los campos."""
+      """Limpia todos los campos del formulario."""
       self.correo_entry.delete(0, "end")
       self.pass_entry.delete(0, "end")
       self.user_entry.delete(0, "end")
@@ -448,9 +547,10 @@ class CredencialesApp(ctk.CTk):
       self.preview_text.delete("1.0", "end")
       self.preview_text.insert("end", "Complete los campos para ver la vista previa...\n")
       self.preview_text.configure(state="disabled")
+      self.correo_entry.focus()
    
    def validate_form(self):
-      """Valida el formulario completo."""
+      """Valida el formulario completo en tiempo real."""
       correo = self.correo_entry.get().strip()
       password = self.pass_entry.get().strip()
       usuario = self.user_entry.get().strip()
@@ -493,7 +593,7 @@ class CredencialesApp(ctk.CTk):
          self.user_validation.configure(text="")
          all_valid = False
       
-      # Actualizar estado del botón
+      # Actualizar estado del botón y vista previa
       if all_valid:
          self.generate_button.configure(state="normal")
          self.validation_general.configure(
@@ -506,31 +606,32 @@ class CredencialesApp(ctk.CTk):
          self.validation_general.configure(text="")
    
    def update_preview(self, correo, password, usuario):
-      """Actualiza la vista previa."""
+      """Actualiza la vista previa con las credenciales."""
       preview = f"""
-╔════════════════════════════════════════════════════════╗
-║     CREDENCIALES DE ACCESO CORPORATIVO PQN             ║
-╚════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════╗
+║     CREDENCIALES DE ACCESO CORPORATIVO PQN                   ║
+╚══════════════════════════════════════════════════════════════╝
 
 📧 CORREO CORPORATIVO
-Correo:     {correo}{DOMAIN}
+Usuario:    {correo}{DOMAIN}
 Contraseña: {password}
 
-📧 ACCESO A SISTEMAS
+🖥️ ACCESO A SISTEMAS (Windows/VPN/Citrix/Daruma)
 Usuario:    {usuario}
 Contraseña: (La misma de arriba)
 
 🌐 PLATAFORMAS DISPONIBLES
-• S.O Windows
+• Sistema Operativo Windows
 • FortiClient VPN
-• Citrix
-• Daruma
-• Terranova
+• Citrix Workspace
+• Daruma Software
+• Terranova Security Awareness
 • Intranet PQN
 
-⚠ IMPORTANTE
-Guarde estas credenciales en un lugar seguro.
-No comparta su contraseña con terceros.
+⚠️ IMPORTANTE
+• Guarde estas credenciales en un lugar seguro
+• No comparta su contraseña con terceros
+• Todas las claves son complejas por política de seguridad
       """
       
       self.preview_text.configure(state="normal")
@@ -548,16 +649,23 @@ No comparta su contraseña con terceros.
       usuario = self.user_entry.get().strip()
       
       if not all([correo, password, usuario]):
-         messagebox.showwarning("Campos Requeridos", "Complete todos los campos.")
+         messagebox.showwarning(
+               "Campos Requeridos",
+               "Por favor completa todos los campos antes de generar el PDF."
+         )
          return
       
       self.is_generating = True
-      self.generate_button.configure(state="disabled", text="⏳ Generando...")
+      self.generate_button.configure(
+         state="disabled",
+         text="⏳ Generando PDF...",
+         fg_color=COLOR_BG_MEDIUM
+      )
       
       try:
-         filename = "Tus Credenciales de Acceso PQN.pdf"
+         filename = "Credenciales_Acceso_PQN.pdf"
          
-         # Rutas
+         # Rutas de salida
          documentos = Path.home() / "Documents"
          if not documentos.exists():
                documentos = Path.home() / "Documentos"
@@ -573,6 +681,10 @@ No comparta su contraseña con terceros.
          # Generar PDF
          self.crear_pdf(str(ruta_docs), correo, password, usuario)
          
+         # Calcular hash
+         file_hash = calculate_file_hash(str(ruta_docs))
+         
+         # Copia en D:/
          if Path("D:/").exists():
                self.crear_pdf(str(ruta_datos), correo, password, usuario)
          
@@ -582,158 +694,251 @@ No comparta su contraseña con terceros.
          else:
                open_pdf(str(ruta_docs))
          
+         # === Enviar correo automáticamente ===
+         try:
+            correo_destino = f"{correo}{DOMAIN}"
+            enviado = enviar_correo_con_pdf(correo_destino, str(ruta_docs))
+            if enviado:
+               print(f"Correo enviado correctamente a {correo_destino}")
+            else:
+               print("No se pudo enviar el correo con el adjunto.")
+         except Exception as e:
+            print(f"Error al intentar enviar el correo: {e}")
+
          messagebox.showinfo(
-               "Éxito",
-               f"✓ PDF generado correctamente\n\n"
-               f"Ubicación: {ruta_docs}\n\n"
-               f"El documento se abrió automáticamente."
+               "✓ PDF Generado Exitosamente",
+               f"El documento de credenciales ha sido generado:\n\n"
+               f"📄 Archivo: {filename}\n"
+               f"📁 Ubicación: {ruta_docs}\n"
+               f"🔐 SHA-256: {file_hash[:16]}...\n\n"
+               f"El archivo se ha abierto automáticamente."
          )
          
-         # Cerrar aplicación
-         self.after(1000, self.quit)
+         # Cerrar aplicación después de 2 segundos
+         self.after(2000, self.quit)
          
       except Exception as e:
-         messagebox.showerror("Error", f"No se pudo generar el PDF:\n\n{str(e)}")
+         messagebox.showerror(
+               "Error en Generación",
+               f"No se pudo generar el PDF:\n\n{str(e)}\n\n"
+               "Posibles causas:\n"
+               "• Falta librería reportlab\n"
+               "• Sin permisos de escritura\n"
+               "• Disco lleno\n"
+               "• Logos no encontrados"
+         )
       finally:
          self.is_generating = False
-         self.generate_button.configure(state="normal", text="▶ Generar PDF")
+         self.generate_button.configure(
+               state="normal",
+               text="🚀 Generar PDF de Credenciales",
+               fg_color=COLOR_PRIMARY
+         )
    
    def crear_pdf(self, path, correo, password, usuario):
-      """Crea el PDF de credenciales."""
-      doc = SimpleDocTemplate(
-         str(path),
-         pagesize=letter,
-         rightMargin=50,
-         leftMargin=50,
-         topMargin=60,
-         bottomMargin=40
-      )
+      """Crea el PDF de credenciales con logos corporativos y tabla profesional."""
+      c = canvas.Canvas(path, pagesize=letter)
+      width, height = letter
       
-      story = []
-      styles = getSampleStyleSheet()
+      # Colores RGB normalizado
+      MORADO = (0.416, 0.106, 0.604)
+      VERDE = (0.0, 0.902, 0.463)
+      NEGRO = (0.043, 0.043, 0.043)
+      GRIS_OSCURO = (0.290, 0.290, 0.290)
+      BLANCO = (1.0, 1.0, 1.0)
       
-      # Estilos personalizados
-      title_style = ParagraphStyle(
-         "title",
-         fontName="Helvetica-Bold",
-         fontSize=16,
-         leading=20,
-         alignment=TA_CENTER,
-         spaceAfter=20,
-         textColor=colors.HexColor("#4caf50")
-      )
+      # === LOGOS EN ENCABEZADO ===
+      try:
+         if LOGO_PROQUINAL.exists():
+               c.drawImage(str(LOGO_PROQUINAL), 50, height - 80, width=100, height=40, preserveAspectRatio=True, mask='auto')
+         if LOGO_MAYTE.exists():
+               c.drawImage(str(LOGO_MAYTE), width/2 - 50, height - 80, width=100, height=40, preserveAspectRatio=True, mask='auto')
+         if LOGO_STEFANINI.exists():
+               c.drawImage(str(LOGO_STEFANINI), width - 150, height - 80, width=100, height=40, preserveAspectRatio=True, mask='auto')
+      except:
+         pass
       
-      normal_style = ParagraphStyle(
-         "normal",
-         fontName="Helvetica",
-         fontSize=11,
-         leading=15,
-         alignment=TA_LEFT,
-         spaceAfter=8
-      )
+      # Línea divisoria
+      c.setStrokeColorRGB(*MORADO)
+      c.setLineWidth(2)
+      c.line(50, height - 90, width - 50, height - 90)
       
-      bold_style = ParagraphStyle(
-         "bold",
-         fontName="Helvetica-Bold",
-         fontSize=11,
-         leading=15,
-         alignment=TA_LEFT,
-         spaceAfter=8
-      )
+      # === TÍTULO ===
+      c.setFont("Helvetica-Bold", 18)
+      c.setFillColorRGB(*MORADO)
+      c.drawCentredString(width / 2, height - 120, "CREDENCIALES DE ACCESO CORPORATIVO")
       
-      # Título
-      story.append(Paragraph("🔐 Credenciales de Acceso PQN", title_style))
-      story.append(Spacer(1, 12))
-      
-      # Introducción
-      story.append(Paragraph(
-         "Estimado usuario, a continuación se presentan las credenciales de acceso "
-         "que se le han asignado para su ingreso, cambio o transición de cargo en la empresa.",
-         normal_style
-      ))
-      story.append(Spacer(1, 18))
-      
-      # Correo
-      story.append(Paragraph("📧 Correo Corporativo", bold_style))
-      story.append(Spacer(1, 6))
-      story.append(Paragraph(f"Correo:     {correo}{DOMAIN}", normal_style))
-      story.append(Paragraph(f"Contraseña: {password}", normal_style))
-      story.append(Spacer(1, 12))
-      story.append(Paragraph(
-         "ℹ️ Todas las claves son complejas por política de seguridad interna.",
-         normal_style
-      ))
-      story.append(Spacer(1, 18))
-      
-      # Tabla de plataformas
-      story.append(Paragraph("🌐 Plataformas de Acceso", bold_style))
-      story.append(Spacer(1, 10))
-      
-      def p(text):
-         return Paragraph(text, normal_style)
-      
-      data = [
-         [p("Plataforma"), p("URL / Ubicación"), p("Usuario"), p("Contraseña")],
-         [p("Windows"), p("Sistema Operativo"), p(usuario), p("La misma")],
-         [p("FortiClient VPN"), p("Programa instalado"), p(usuario), p("La misma")],
-         [p("Citrix"), p("portal.proquinal.com/Citrix"), p(usuario), p("La misma")],
-         [p("Daruma"), p("proquinal.darumasoftware.com"), p(usuario), p("La misma")],
-         [p("Terranova"), p("secure.terranovasite.com"), p(f"{correo}{DOMAIN}"), p("La misma")],
-         [p("Intranet"), p("pqnintranet.proquinal.com"), p("Nº de carnet"), p("Tu cédula")]
+      c.setFont("Helvetica", 11)
+      c.setFillColorRGB(*NEGRO)
+      c.drawCentredString(width / 2, height - 138, "Proquinal S.A.S - Spradling | Stefanini PQN")
+      # Fecha y hora
+      fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+      c.setFont("Helvetica-Oblique", 9)
+      c.setFillColorRGB(*GRIS_OSCURO)
+      c.drawRightString(width - 50, height - 155, f"Emitido: {fecha_actual}")
+
+      # === TABLA DE CREDENCIALES ===
+      tabla_y = height - 230
+      c.setStrokeColorRGB(*MORADO)
+      c.setFillColorRGB(*BLANCO)
+      c.roundRect(50, tabla_y - 120, width - 100, 140, 10, stroke=1, fill=1)
+
+      # Títulos
+      c.setFont("Helvetica-Bold", 12)
+      c.setFillColorRGB(*MORADO)
+      c.drawString(70, tabla_y, "Correo Corporativo:")
+      c.drawString(70, tabla_y - 30, "Usuario Windows/VPN:")
+      c.drawString(70, tabla_y - 60, "Contraseña de Acceso:")
+
+      # Datos
+      c.setFont("Helvetica", 12)
+      c.setFillColorRGB(*NEGRO)
+      c.drawString(250, tabla_y, f"{correo}{DOMAIN}")
+      c.drawString(250, tabla_y - 30, usuario)
+      c.drawString(250, tabla_y - 60, password)
+
+      # === NOTAS DE SEGURIDAD ===
+      nota_y = tabla_y - 160
+      c.setFillColorRGB(*GRIS_OSCURO)
+      c.setFont("Helvetica-Bold", 11)
+      c.drawString(50, nota_y, "⚠️ POLÍTICA DE SEGURIDAD:")
+
+      c.setFont("Helvetica", 10)
+      c.setFillColorRGB(*NEGRO)
+      lineas = [
+         "• Estas credenciales son personales e intransferibles.",
+         "• No comparta su contraseña con ningún colaborador.",
+         "• La contraseña debe cambiarse cada 90 días.",
+         "• En caso de pérdida o compromiso, informe a TI inmediatamente.",
+         "• Accesos disponibles: Windows, VPN, Citrix, Daruma, Terranova, Intranet PQN."
       ]
-      
-      table = Table(data, colWidths=[100, 180, 100, 80], repeatRows=1)
-      table.setStyle(TableStyle([
-         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4caf50")),
-         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-         ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-         ("FONTSIZE", (0, 0), (-1, -1), 9),
-         ("BOX", (0, 0), (-1, -1), 1, colors.black),
-         ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.grey),
-         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")])
-      ]))
-      
-      story.append(table)
-      story.append(Spacer(1, 20))
-      
-      # Información importante
-      story.append(Paragraph("⚠️ Importante", bold_style))
-      story.append(Paragraph(
-         "• Para solicitudes relacionadas con su equipo o accesos, cree un caso en Mayté "
-         "(https://mayte.spradling.group) usando su correo y contraseña.",
-         normal_style
-      ))
-      story.append(Spacer(1, 20))
-      
-      # Firma
-      story.append(Paragraph("Atentamente,", normal_style))
-      story.append(Spacer(1, 12))
-      story.append(Paragraph("Equipo de Mesa de Servicio IT<br/>Proquinal S.A.", normal_style))
-      story.append(Spacer(1, 20))
-      
-      # Pie
-      footer_style = ParagraphStyle(
-         "footer",
-         fontName="Helvetica-Oblique",
-         fontSize=8,
-         alignment=TA_CENTER,
-         textColor=colors.grey
-      )
-      story.append(Paragraph(
-         f"Documento generado el {datetime.now().strftime('%d/%m/%Y %H:%M')} | "
-         f"{APP_TITLE} {APP_VERSION}",
-         footer_style
-      ))
-      
-      doc.build(story)
+      y = nota_y - 20
+      for linea in lineas:
+         c.drawString(70, y, linea)
+         y -= 14
+
+      # === PIE DE PÁGINA ===
+      c.setStrokeColorRGB(*MORADO)
+      c.line(50, 80, width - 50, 80)
+      c.setFont("Helvetica-Oblique", 9)
+      c.setFillColorRGB(*GRIS_OSCURO)
+      c.drawCentredString(width / 2, 65, "Documento confidencial - Uso exclusivo de Proquinal / Stefanini PQN")
+      c.drawCentredString(width / 2, 52, "© 2025 josuerom | Todos los derechos reservados")
+
+      # === FIRMA DIGITAL (HASH) ===
+      hash_text = calculate_file_hash(path)
+      c.setFont("Courier", 8)
+      c.setFillColorRGB(*GRIS_OSCURO)
+      c.drawString(50, 35, f"SHA-256: {hash_text[:64]}")
+      if len(hash_text) > 64:
+         c.drawString(50, 25, hash_text[64:])
+
+      # Finalizar PDF
+      c.showPage()
+      c.save()
 
 
 # ============================================================================
-# PUNTO DE ENTRADA
+# MÉTODO PRINCIPAL (ENTRY POINT)
+# ============================================================================
+
+def main():
+   """Punto de entrada principal del programa."""
+   try:
+      # Verificar privilegios de administrador
+      if platform.system() == "Windows" and not is_admin():
+         respuesta = messagebox.askyesno(
+               "Permisos Requeridos",
+               "⚠️ Este programa requiere privilegios de administrador para generar archivos.\n\n"
+               "¿Desea reiniciarlo con permisos elevados?"
+         )
+         if respuesta:
+               run_as_admin()
+         else:
+               messagebox.showinfo(
+                  "Ejecución Cancelada",
+                  "La aplicación no puede continuar sin permisos administrativos."
+               )
+               sys.exit(0)
+      
+      # Iniciar aplicación
+      app = CredencialesApp()
+      app.mainloop()
+   
+   except KeyboardInterrupt:
+      print("\nEjecución interrumpida por el usuario.")
+      sys.exit(0)
+   
+   except Exception as e:
+      messagebox.showerror(
+         "Error Fatal",
+         f"Ocurrió un error inesperado:\n\n{str(e)}"
+      )
+      sys.exit(1)
+
+
+# ============================================================================
+# FUNCIÓN PARA ENVÍO DE CORREO
+# ============================================================================
+
+def enviar_correo_con_pdf(destinatario, ruta_pdf):
+   """
+   Envía el PDF generado al correo corporativo indicado por el usuario.
+   Usa SMTP seguro (TLS).
+   """
+   # Configuración del servidor de correo corporativo
+   SMTP_SERVER = "smtp.office365.com"     # Cambiar según la empresa (Outlook/Exchange)
+   SMTP_PORT = 587                        # Puerto TLS
+   SMTP_USER = "josue.romero@spradling.group"
+   SMTP_PASS = "Jo320872.."
+
+   try:
+      # Crear mensaje
+      msg = MIMEMultipart()
+      msg["From"] = SMTP_USER
+      msg["To"] = destinatario
+      msg["Date"] = formatdate(localtime=True)
+      msg["Subject"] = "📄 Credenciales de Acceso Corporativo PQN"
+
+      cuerpo_html = f"""
+      <html>
+      <body style="font-family:Segoe UI; color:#222;">
+         <h3>Buen día, estimado/a usuario,</h3>
+         <p>Adjunto encontrará sus credenciales de acceso corporativo generadas automáticamente por el sistema.</p>
+         <p><b>Correo:</b> {destinatario}<br>
+            <b>Fecha:</b> {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}</p>
+         <p>Por favor guarde este documento en un lugar seguro.</p>
+         <hr>
+         <p style="font-size:12px; color:#777;">Este correo fue enviado automáticamente. No responda este mensaje.<br>
+         © 2025 Proquinal / Stefanini - Todos los derechos reservados.</p>
+      </body>
+      </html>
+      """
+      msg.attach(MIMEText(cuerpo_html, "html"))
+
+      # Adjuntar el PDF
+      with open(ruta_pdf, "rb") as f:
+         part = MIMEApplication(f.read(), Name=os.path.basename(ruta_pdf))
+      part["Content-Disposition"] = f'attachment; filename="{os.path.basename(ruta_pdf)}"'
+      msg.attach(part)
+
+      # Envío del correo
+      with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+         server.starttls()
+         server.login(SMTP_USER, SMTP_PASS)
+         server.send_message(msg)
+
+      print(f"✅ Correo enviado exitosamente a {destinatario}")
+      return True
+
+   except Exception as e:
+      print(f"❌ Error al enviar correo: {e}")
+      return False
+
+
+# ============================================================================
+# EJECUCIÓN DEL SCRIPT
 # ============================================================================
 
 if __name__ == "__main__":
-   app = CredencialesApp()
-   app.mainloop()
+   main()

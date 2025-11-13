@@ -1,4 +1,4 @@
-('D:\\Workspace\\pqn-col-automatizaciones\\build\\Generate_Diagnostic_Report\\PYZ-00.pyz',
+('D:\\Workspace\\PQNCOL-Automatizaciones\\build\\Generate_Diagnostic_Report\\PYZ-00.pyz',
  [('PIL',
    'C:\\Users\\romero-josue\\AppData\\Roaming\\Python\\Python313\\site-packages\\PIL\\__init__.py',
    'PYMODULE'),

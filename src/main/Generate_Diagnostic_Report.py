@@ -46,22 +46,22 @@ __status__ = "Production"
 # CONFIGURACIÓN GLOBAL
 # ============================================================================
 ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("green")
+ctk.set_default_color_theme("blue")
 
-APP_TITLE = "Generador de Informes IT"
+APP_TITLE = "Generador de Informes"
 APP_VERSION = f"v{__version__}"
 APP_SIZE = "800x990"
 
-# Paleta de colores profesional (Esquema Naranja-Ámbar-Oscuro)
-COLOR_PRIMARY = "#e65100"         # Naranja profundo
-COLOR_SECONDARY = "#ff6f00"       # Naranja brillante
-COLOR_ACCENT = "#ff9800"          # Ámbar
-COLOR_SUCCESS = "#00c853"         # Verde éxito
+# Paleta de colores profesional (Azul-Negro-Blanco-Verde)
+COLOR_PRIMARY = "#1565c0"         # Azul profundo
+COLOR_SECONDARY = "#1976d2"       # Azul medio
+COLOR_ACCENT = "#42a5f5"          # Azul claro
+COLOR_SUCCESS = "#00e676"         # Verde éxito brillante
 COLOR_WARNING = "#ffc107"         # Amarillo advertencia
 COLOR_ERROR = "#d32f2f"           # Rojo error
-COLOR_BG_DARK = "#1a1410"         # Fondo oscuro principal
-COLOR_BG_MEDIUM = "#2d2416"       # Fondo medio
-COLOR_BG_LIGHT = "#3d321e"        # Fondo claro
+COLOR_BG_DARK = "#0a0a0a"         # Negro profundo
+COLOR_BG_MEDIUM = "#1a1a1a"       # Negro medio
+COLOR_BG_LIGHT = "#2d2d2d"        # Gris oscuro
 COLOR_TEXT_WHITE = "#ffffff"      # Texto blanco
 COLOR_TEXT_GRAY = "#b0bec5"       # Texto gris claro
 
@@ -90,6 +90,26 @@ def is_admin():
       return ctypes.windll.shell32.IsUserAnAdmin()
    except:
       return False
+
+
+def run_as_admin():
+   """Reinicia el script con privilegios de administrador."""
+   try:
+      if sys.argv[0].endswith('.py'):
+         ctypes.windll.shell32.ShellExecuteW(
+               None, "runas", sys.executable, f'"{sys.argv[0]}"', None, 1
+         )
+      else:
+         ctypes.windll.shell32.ShellExecuteW(
+               None, "runas", sys.executable, " ".join(sys.argv), None, 1
+         )
+      sys.exit(0)
+   except Exception as e:
+      messagebox.showerror(
+         "Error de Privilegios",
+         f"No se pudo elevar privilegios:\n{e}\n\nPor favor, ejecute como administrador."
+      )
+      sys.exit(1)
 
 
 # ============================================================================
@@ -227,7 +247,7 @@ def validate_ticket_number(ticket):
       return False, "Solo puede contener números"
    
    if len(ticket) < 5:
-      return False, "Debe tener al menos 5 digitos"
+      return False, "Debe tener al menos 5 dígitos"
    
    return True, ""
 
@@ -241,7 +261,7 @@ def validate_fixed_asset(asset):
       return False, "Solo puede contener números"
    
    if len(asset) < 5:
-      return False, "Debe tener al menos 5 digitos"
+      return False, "Debe tener al menos 5 dígitos"
    
    return True, ""
 
@@ -403,7 +423,7 @@ class DiagnosticApp(ctk.CTk):
       
       self.fixed_asset_entry = ctk.CTkEntry(
          form_frame,
-         placeholder_text="Ej: 35094, AF-12345",
+         placeholder_text="Ej: 35094, 12345",
          width=500,
          height=40,
          font=FONT_INFO,
@@ -426,7 +446,7 @@ class DiagnosticApp(ctk.CTk):
       
       self.ticket_entry = ctk.CTkEntry(
          form_frame,
-         placeholder_text="Ej: 41233, CASE-2024-001",
+         placeholder_text="Ej: 41233, 20241",
          width=500,
          height=40,
          font=FONT_INFO,
@@ -744,11 +764,11 @@ class DiagnosticApp(ctk.CTk):
                text="🚀 Generar Informe PDF",
                fg_color=COLOR_PRIMARY
          )
-
+   
    def crear_pdf(self, path, tecnico, ticket, fixed_asset, fecha):
       """
       Crea el archivo PDF del informe con logos corporativos.
-
+      
       Args:
          path: Ruta donde guardar el PDF
          tecnico: Nombre del técnico
@@ -758,15 +778,14 @@ class DiagnosticApp(ctk.CTk):
       """
       c = canvas.Canvas(path, pagesize=letter)
       width, height = letter
-
-      # Nuevos colores (normalizados a 0..1)
-      # NEGRO MATE: #0b0b0b
-      BLACK_MATE = (0.043137, 0.043137, 0.043137)   # CAMBIO: antes blanco (1,1,1)
-      # AZUL PROFESIONAL: #0b5cff
-      AZUL = (0.043137, 0.360784, 1.0)              # CAMBIO: antes naranja (1,0.6,0)
-      # GRIS OSCURO: #4a4a4a
-      GRIS_OSCURO = (0.290196, 0.290196, 0.290196)  # CAMBIO: antes gris claro (0.9,0.9,0.9)
-
+      
+      # Colores en formato RGB normalizado (0-1)
+      NEGRO_MATE = (0.043, 0.043, 0.043)      # #0b0b0b
+      AZUL_PROF = (0.043, 0.360, 1.0)          # #0b5cff
+      GRIS_OSCURO = (0.290, 0.290, 0.290)     # #4a4a4a
+      BLANCO = (1.0, 1.0, 1.0)                # #ffffff
+      VERDE = (0.0, 0.902, 0.463)             # #00e676
+      
       # ===================================================================
       # ENCABEZADO CON LOGOS
       # ===================================================================
@@ -780,7 +799,10 @@ class DiagnosticApp(ctk.CTk):
                   preserveAspectRatio=True,
                   mask='auto'
                )
-
+               self.log("✓ Logo Proquinal cargado", "SUCCESS")
+         else:
+               self.log("⚠ Logo Proquinal no encontrado", "WARNING")
+         
          # Logo Mayté (Centro superior)
          if LOGO_MAYTE.exists():
                c.drawImage(
@@ -790,7 +812,10 @@ class DiagnosticApp(ctk.CTk):
                   preserveAspectRatio=True,
                   mask='auto'
                )
-
+               self.log("✓ Logo Mayté cargado", "SUCCESS")
+         else:
+               self.log("⚠ Logo Mayté no encontrado", "WARNING")
+         
          # Logo Stefanini (Esquina superior derecha)
          if LOGO_STEFANINI.exists():
                c.drawImage(
@@ -800,141 +825,295 @@ class DiagnosticApp(ctk.CTk):
                   preserveAspectRatio=True,
                   mask='auto'
                )
+               self.log("✓ Logo Stefanini cargado", "SUCCESS")
+         else:
+               self.log("⚠ Logo Stefanini no encontrado", "WARNING")
+               
       except Exception as e:
          self.log(f"⚠ Error cargando logos: {e}", "WARNING")
-
-      # Línea divisoria (AZUL)
-      c.setStrokeColorRGB(*AZUL)          # CAMBIO
+      
+      # Línea divisoria bajo logos (AZUL)
+      c.setStrokeColorRGB(*AZUL_PROF)
       c.setLineWidth(2)
       c.line(50, height - 90, width - 50, height - 90)
-
+      
       # ===================================================================
       # TÍTULO DEL INFORME
       # ===================================================================
       c.setFont("Helvetica-Bold", 18)
-      c.setFillColorRGB(*AZUL)            # CAMBIO: título en AZUL
+      c.setFillColorRGB(*AZUL_PROF)
       c.drawCentredString(width / 2, height - 120, "INFORME DE DIAGNÓSTICO TÉCNICO")
-
-      # Fecha y datos del caso (NEGRO MATE)
+      
+      # Información del caso (NEGRO MATE)
       c.setFont("Helvetica", 11)
-      c.setFillColorRGB(*BLACK_MATE)      # CAMBIO
+      c.setFillColorRGB(*NEGRO_MATE)
       c.drawString(50, height - 150, f"Fecha de generación: {fecha}")
       c.drawString(50, height - 165, f"Responsable: {tecnico}")
       c.drawString(50, height - 180, f"Caso Mayté: {ticket}")
       c.drawString(50, height - 195, f"Activo Fijo: {fixed_asset}")
-
-      # Línea divisoria (AZUL más suave)
-      c.setStrokeColorRGB(0.0, 0.3, 0.8)   # CAMBIO: tono de azul para la línea secundaria
+      
+      # Línea divisoria (AZUL suave)
+      c.setStrokeColorRGB(0.0, 0.3, 0.8)
       c.setLineWidth(1)
       c.line(50, height - 210, width - 50, height - 210)
-
+      
       # ===================================================================
       # INFORMACIÓN DEL EQUIPO
       # ===================================================================
       y = height - 240
       c.setFont("Helvetica-Bold", 13)
-      c.setFillColorRGB(0.043137, 0.360784, 1.0)   # CAMBIO: encabezado sección en AZUL
+      c.setFillColorRGB(*AZUL_PROF)
       c.drawString(50, y, "🔧 Información del Sistema")
-
+      
       c.setFont("Helvetica", 10)
-      c.setFillColorRGB(*BLACK_MATE)       # CAMBIO
+      c.setFillColorRGB(*NEGRO_MATE)
       y -= 20
+      
       sysinfo = self.system_info
       lines = [
          f"Equipo / Hostname: {sysinfo['hostname']}",
-         f"Sistema Operativo: {sysinfo['os']}",
+         f"Usuario: {sysinfo['user']}",
+         f"Sistema Operativo: {sysinfo['os'][:70]}",
          f"Fabricante: {sysinfo['manufacturer']}",
          f"Modelo: {sysinfo['model']}",
          f"Serial BIOS: {sysinfo['serial']}",
-         f"Procesador: {sysinfo['processor']}",
-         f"RAM Total: {sysinfo['ram']['total']} GB",
+         f"Procesador: {sysinfo['processor'][:65]}",
+         f"RAM Total: {sysinfo['ram']['total']} GB (Usada: {sysinfo['ram']['used']} GB, {sysinfo['ram']['percent']}%)",
       ]
-
+      
       for line in lines:
-         c.drawString(60, y, line)
+         if y < 100:
+               c.showPage()
+               y = height - 80
+               c.setFont("Helvetica", 10)
+               c.setFillColorRGB(*NEGRO_MATE)
+         c.drawString(60, y, f"• {line}")
          y -= 15
-
-      # Espacio para discos
+      
+      # ===================================================================
+      # UNIDADES DE ALMACENAMIENTO
+      # ===================================================================
       y -= 10
       c.setFont("Helvetica-Bold", 13)
-      c.setFillColorRGB(*AZUL)            # CAMBIO
-      c.drawString(50, y, "🔧 Unidades de Almacenamiento:")
-      y -= 15
-
-      c.setFont("Helvetica", 10)
-      c.setFillColorRGB(*BLACK_MATE)      # CAMBIO
-      for disk in sysinfo["disks"]:
-         c.drawString(60, y, f"{disk['drive']} - {disk['total']} GB (Usado {disk['used']} GB, Libre {disk['free']} GB)")
-         y -= 13
-
-      # ===================================================================
-      # SECCIÓN DE OBSERVACIONES TÉCNICAS
-      # ===================================================================
-      y -= 25
-      c.setFont("Helvetica-Bold", 13)
-      c.setFillColorRGB(*AZUL)            # CAMBIO
-      c.drawString(50, y, "🔧 Observaciones Técnicas / Mantenimiento Realizado:")
+      c.setFillColorRGB(*AZUL_PROF)
+      c.drawString(50, y, "💾 Unidades de Almacenamiento")
       y -= 18
+      
+      c.setFont("Helvetica", 10)
+      c.setFillColorRGB(*NEGRO_MATE)
+      for disk in sysinfo["disks"]:
+         if y < 100:
+               c.showPage()
+               y = height - 80
+               c.setFont("Helvetica", 10)
+               c.setFillColorRGB(*NEGRO_MATE)
+         c.drawString(60, y, f"• {disk['drive']} - Total: {disk['total']} GB | Usado: {disk['used']} GB | Libre: {disk['free']} GB ({disk['percent']}%)")
+         y -= 15
+      
+      # ===================================================================
+      # PROCEDIMIENTO REALIZADO
+      # ===================================================================
+      y -= 20
+      if y < 300:
+         c.showPage()
+         y = height - 80
+      
+      c.setFont("Helvetica-Bold", 13)
+      c.setFillColorRGB(*AZUL_PROF)
+      c.drawString(50, y, "🔧 Procedimiento de Mantenimiento Realizado")
+      y -= 18
+      
+      c.setFont("Helvetica", 10)
+      c.setFillColorRGB(*NEGRO_MATE)
+      
+      procedimientos = [
+         "1. Se retiraron los tornillos de la carcasa inferior del equipo.",
+         "2. Se accedió al hardware interno (RAM, SSD, ventiladores, disipadores).",
+         "3. Se desconectó la batería para evitar descargas eléctricas.",
+         "4. Se limpió el polvo acumulado con aire comprimido en componentes críticos.",
+         "5. Se retiró completamente la pasta térmica antigua del procesador.",
+         "6. Se aplicó nueva pasta térmica de alta conductividad térmica.",
+         "7. Se limpiaron los ventiladores y rejillas de ventilación.",
+         "8. Se reinstalaron todos los componentes y tornillos correctamente.",
+         "9. Se realizaron pruebas de encendido, estabilidad y temperaturas.",
+         "10. Se validó el estado general del sistema operativo y drivers.",
+         "11. Se aplicaron actualizaciones críticas de Windows y programas.",
+         "12. Se verificó el correcto funcionamiento de servicios de red."
+      ]
+      
+      for proc in procedimientos:
+         if y < 100:
+               c.showPage()
+               y = height - 80
+               c.setFont("Helvetica", 10)
+               c.setFillColorRGB(*NEGRO_MATE)
+         c.drawString(60, y, proc)
+         y -= 15
+      
+      # ===================================================================
+      # OBSERVACIONES TÉCNICAS
+      # ===================================================================
+      y -= 15
+      if y < 200:
+         c.showPage()
+         y = height - 80
+      
+      c.setFont("Helvetica-Bold", 13)
+      c.setFillColorRGB(*AZUL_PROF)
+      c.drawString(50, y, "📋 Observaciones Técnicas")
+      y -= 18
+      
       c.setFont("Helvetica-Oblique", 10)
-      c.setFillColorRGB(*BLACK_MATE)      # CAMBIO
-      c.drawString(60, y, "1. Limpieza física y lógica del equipo.")
-      y -= 13
-      c.drawString(60, y, "2. Cambio de pasta térmica al procesador.")
-      y -= 13
-      c.drawString(60, y, "3. Revisión de integridad de hardware (RAM, SSD, BIOS).")
-      y -= 13
-      c.drawString(60, y, "4. Optimización de arranque y procesos residuales.")
-      y -= 13
-      c.drawString(60, y, "5. Verificación de conectividad y servicios de red.")
-      y -= 13
-      c.drawString(60, y, "6. Actualizaciones de programas instalados y Windows.")
-      y -= 13
-      c.drawString(60, y, "7. Aplicación de políticas de SI - SpradlingGroup.")
-      y -= 13
-      c.drawString(60, y, "8. Presentar el equipo 1-2 veces al año para mantenimiento preventivo / correctivo.")
-
+      c.setFillColorRGB(*NEGRO_MATE)
+      
+      observaciones = [
+         "• Estado general del equipo: ÓPTIMO después del mantenimiento.",
+         "• Temperaturas de CPU en rangos normales (35-45°C en reposo).",
+         "• Sistema operativo funcionando correctamente sin errores críticos.",
+         "• Conectividad de red verificada y funcional.",
+         "• Políticas de seguridad de SpradlingGroup aplicadas correctamente.",
+         "• Se recomienda realizar mantenimiento preventivo cada 6-12 meses."
+      ]
+      
+      for obs in observaciones:
+         if y < 100:
+               c.showPage()
+               y = height - 80
+               c.setFont("Helvetica-Oblique", 10)
+               c.setFillColorRGB(*NEGRO_MATE)
+         c.drawString(60, y, obs)
+         y -= 15
+      
+      # ===================================================================
+      # RECOMENDACIONES AL USUARIO
+      # ===================================================================
+      y -= 15
+      if y < 200:
+         c.showPage()
+         y = height - 80
+      
+      c.setFont("Helvetica-Bold", 13)
+      c.setFillColorRGB(*VERDE)
+      c.drawString(50, y, "💡 Recomendaciones al Usuario")
+      y -= 18
+      
+      c.setFont("Helvetica", 10)
+      c.setFillColorRGB(*NEGRO_MATE)
+      
+      recomendaciones = [
+         "• Realizar mantenimiento preventivo 1-2 veces al año según uso.",
+         "• Evitar mantener el cargador conectado permanentemente durante todo el día.",
+         "• Apagar el equipo al menos una vez al día para liberar memoria RAM.",
+         "• Mantener limpias las rejillas de ventilación para evitar sobrecalentamiento.",
+         "• No bloquear las salidas de aire del equipo con objetos o superficies blandas.",
+         "• Utilizar el equipo en superficies duras y planas para mejor ventilación.",
+         "• Evitar exponer el equipo a temperaturas extremas o humedad excesiva.",
+         "• Reportar cualquier anomalía (ruidos extraños, sobrecalentamiento, lentitud)."
+      ]
+      
+      for rec in recomendaciones:
+         if y < 100:
+               c.showPage()
+               y = height - 80
+               c.setFont("Helvetica", 10)
+               c.setFillColorRGB(*NEGRO_MATE)
+         c.drawString(60, y, rec)
+         y -= 15
+      
       # ===================================================================
       # FIRMA DIGITAL Y PIE DE PÁGINA
       # ===================================================================
-      y = 100
+      # Ir a la última página si es necesario
+      if y < 150:
+         c.showPage()
+         y = height - 80
+      
+      # Espacio para firma
+      y = 120
       c.setFont("Helvetica-Bold", 11)
-      c.setFillColorRGB(*AZUL)            # CAMBIO
+      c.setFillColorRGB(*AZUL_PROF)
       c.drawString(50, y + 40, "_______________________________")
       c.drawString(50, y + 25, tecnico)
       c.setFont("Helvetica", 9)
-      c.setFillColorRGB(*BLACK_MATE)      # CAMBIO
-      c.drawString(50, y + 12, "Técnico de Soporte Stefanini")
-
+      c.setFillColorRGB(*NEGRO_MATE)
+      c.drawString(50, y + 12, "Técnico de Soporte - Stefanini")
+      
       # Línea divisoria final (AZUL)
-      c.setStrokeColorRGB(*AZUL)          # CAMBIO
+      c.setStrokeColorRGB(*AZUL_PROF)
       c.setLineWidth(0.5)
       c.line(50, 80, width - 50, 80)
-
-      # Hash de seguridad y pie de página (GRIS OSCURO)
-      file_hash = calculate_file_hash(path)
+      
+      # Logo Stefanini marca de agua (esquina inferior derecha - pequeño)
+      try:
+         if LOGO_STEFANINI.exists():
+               c.saveState()
+               c.setFillAlpha(0.15)  # Transparencia para marca de agua
+               c.drawImage(
+                  str(LOGO_STEFANINI),
+                  width - 130, 20,
+                  width=80, height=30,
+                  preserveAspectRatio=True,
+                  mask='auto'
+               )
+               c.restoreState()
+      except:
+         pass
+      
+      # Hash de seguridad (GRIS OSCURO)
       c.setFont("Helvetica", 7)
-      c.setFillColorRGB(*GRIS_OSCURO)     # CAMBIO
-      c.drawString(50, 65, f"SHA-256: {file_hash}")
-      c.drawString(50, 50, "Documento Firmado")
-      c.drawRightString(width - 50, 50, f"© 2025 @JOSUEROM | STEF - PQN | VERSIÓN {__version__}")
-
+      c.setFillColorRGB(*GRIS_OSCURO)
+      c.drawString(50, 65, f"SHA-256: {calculate_file_hash(path)[:40]}...")
+      c.drawString(50, 55, "Documento Firmado Digitalmente")
+      c.drawString(50, 45, f"Generado con {APP_TITLE} {APP_VERSION}")
+      
+      # Copyright (GRIS OSCURO)
+      c.setFont("Helvetica-Oblique", 7)
+      c.drawRightString(width - 140, 45, f"{__copyright__}")
+      
       # Guardar PDF
       c.save()
 
 
-if __name__ == "__main__":
-   # Elevar privilegios si no es administrador
+# ============================================================================
+# PUNTO DE ENTRADA PRINCIPAL
+# ============================================================================
+
+def main():
+   """Función principal con verificación de privilegios de administrador."""
+   
+   # Verificar privilegios de administrador (opcional para este programa)
    if not is_admin():
-      ctypes.windll.shell32.ShellExecuteW(
-            None,
-            "runas",
-            sys.executable,
-            ' '.join([f'"{arg}"' for arg in sys.argv]),
-            None,
-            1
+      response = messagebox.askyesno(
+         "🔐 Privilegios de Administrador",
+         "Esta aplicación funciona mejor con privilegios de administrador\n"
+         "para acceder a toda la información del sistema.\n\n"
+         "¿Desea reiniciar la aplicación como administrador?",
+         icon='info'
       )
-      sys.exit(0)
+      
+      if response:
+         run_as_admin()
+      else:
+         messagebox.showinfo(
+               "Información",
+               "La aplicación continuará sin privilegios elevados.\n"
+               "Algunas funciones pueden tener acceso limitado."
+         )
    
    # Iniciar aplicación
-   app = DiagnosticApp()
-   app.mainloop()
+   try:
+      app = DiagnosticApp()
+      app.mainloop()
+   except Exception as e:
+      messagebox.showerror(
+         "Error Fatal",
+         f"No se pudo iniciar la aplicación:\n\n{e}\n\n"
+         f"Versión: {__version__}\n"
+         f"Autor: {__author__}\n"
+         f"Contacto: {__company__}"
+      )
+      sys.exit(1)
+
+
+if __name__ == "__main__":
+   main()
