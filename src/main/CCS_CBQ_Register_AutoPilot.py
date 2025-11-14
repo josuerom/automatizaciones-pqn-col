@@ -44,7 +44,7 @@ ctk.set_default_color_theme("blue")
 # Constantes de la aplicación
 APP_TITLE = "AutoPilot Registration System"
 APP_VERSION = f"v{__version__}"
-APP_SIZE = "700x700"
+APP_SIZE = "700x640"
 
 # Paleta de colores moderna y profesional (Esquema Azul-Cyan-Oscuro)
 COLOR_PRIMARY = "#0d47a1"         # Azul profundo principal
@@ -174,7 +174,7 @@ class AutoPilotApp(ctk.CTk):
       
       # Marco principal
       main_frame = ctk.CTkFrame(self, fg_color=COLOR_BG_DARK)
-      main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+      main_frame.pack(fill="both", expand=True, padx=10, pady=10)  # Menos espacio en los márgenes
       
       # === ENCABEZADO MODERNO ===
       header_frame = ctk.CTkFrame(
@@ -184,48 +184,48 @@ class AutoPilotApp(ctk.CTk):
          border_width=2,
          border_color=COLOR_ACCENT
       )
-      header_frame.pack(fill="x", pady=(0, 20))
-      
+      header_frame.pack(fill="x", pady=(0, 10))  # Reducir el espacio inferior
+
       title_label = ctk.CTkLabel(
          header_frame,
          text="⚡ " + APP_TITLE,
          font=FONT_TITLE,
          text_color=COLOR_TEXT_WHITE
       )
-      title_label.pack(pady=(20, 5))
-      
+      title_label.pack(pady=(10, 2))  # Reducir el espaciado superior e inferior
+
       subtitle_label = ctk.CTkLabel(
          header_frame,
          text=f"{__company__} | {__author__} | {APP_VERSION}",
          font=FONT_SUBTITLE,
          text_color=COLOR_ACCENT
       )
-      subtitle_label.pack(pady=(0, 10))
-      
+      subtitle_label.pack(pady=(0, 5))  # Reducir espacio inferior
+
       copyright_label = ctk.CTkLabel(
          header_frame,
          text=__copyright__,
          font=("Segoe UI", 11),
          text_color=COLOR_TEXT_GRAY
       )
-      copyright_label.pack(pady=(0, 15))
-      
+      copyright_label.pack(pady=(0, 10))  # Reducir el espaciado inferior
+
       # === INFORMACIÓN DEL SISTEMA ===
       info_frame = ctk.CTkFrame(
          main_frame,
          fg_color=COLOR_BG_MEDIUM,
          corner_radius=10
       )
-      info_frame.pack(fill="x", pady=(0, 15))
-      
+      info_frame.pack(fill="x", pady=(0, 10))  # Reducir espacio inferior
+
       info_title = ctk.CTkLabel(
          info_frame,
          text="💻 Información del Sistema",
          font=FONT_INFO,
          text_color=COLOR_TEXT_WHITE
       )
-      info_title.pack(pady=(15, 10), anchor="w", padx=20)
-      
+      info_title.pack(pady=(10, 5), anchor="w", padx=10)  # Reducir espaciado vertical
+
       self.serial_label = ctk.CTkLabel(
          info_frame,
          text=f"Serial Number: {self.serial_number}",
@@ -233,8 +233,8 @@ class AutoPilotApp(ctk.CTk):
          text_color=COLOR_TEXT_WHITE,
          anchor="w"
       )
-      self.serial_label.pack(pady=5, padx=20, anchor="w")
-      
+      self.serial_label.pack(pady=3, padx=10, anchor="w")  # Reducir espaciado
+
       self.status_label = ctk.CTkLabel(
          info_frame,
          text="Estado: Listo para ejecutar",
@@ -242,8 +242,8 @@ class AutoPilotApp(ctk.CTk):
          text_color=COLOR_SUCCESS,
          anchor="w"
       )
-      self.status_label.pack(pady=(0, 15), padx=20, anchor="w")
-      
+      self.status_label.pack(pady=(0, 10), padx=10, anchor="w")  # Reducir espaciado inferior
+
       # === ÁREA DE LOGS ===
       log_label = ctk.CTkLabel(
          main_frame,
@@ -252,8 +252,8 @@ class AutoPilotApp(ctk.CTk):
          text_color=COLOR_TEXT_WHITE,
          anchor="w"
       )
-      log_label.pack(pady=(5, 8), anchor="w")
-      
+      log_label.pack(pady=(5, 5), anchor="w")  # Reducir espaciado
+
       self.output_box = ctk.CTkTextbox(
          main_frame,
          width=640,
@@ -265,10 +265,10 @@ class AutoPilotApp(ctk.CTk):
          border_color=COLOR_SECONDARY,
          corner_radius=10
       )
-      self.output_box.pack(pady=(0, 15))
+      self.output_box.pack(pady=(0, 10))  # Reducir espacio inferior
       self.log("✓ Sistema inicializado correctamente", "SUCCESS")
       self.log(f"✓ Licencia: {__license__}", "INFO")
-      
+
       # === BARRA DE PROGRESO ===
       self.progress_bar = ctk.CTkProgressBar(
          main_frame,
@@ -278,9 +278,9 @@ class AutoPilotApp(ctk.CTk):
          progress_color=COLOR_SECONDARY,
          fg_color=COLOR_BG_MEDIUM
       )
-      self.progress_bar.pack(pady=(0, 20))
+      self.progress_bar.pack(pady=(0, 10))  # Reducir espacio inferior
       self.progress_bar.set(0)
-      
+
       # === BOTÓN PRINCIPAL (ÚNICO) ===
       self.run_button = ctk.CTkButton(
          main_frame,
@@ -295,11 +295,12 @@ class AutoPilotApp(ctk.CTk):
          border_color=COLOR_ACCENT,
          text_color=COLOR_TEXT_WHITE
       )
-      self.run_button.pack(fill="x")
-      
+      self.run_button.pack(fill="x", pady=(15, 10))  # Ajustar el espaciado inferior
+
       # Atajos de teclado
       self.bind("<Return>", lambda e: self.on_execute_clicked())
       self.bind("<Escape>", lambda e: self.quit())
+
    
    def log(self, msg, level="INFO"):
       """Registra mensajes en el log con formato y color."""

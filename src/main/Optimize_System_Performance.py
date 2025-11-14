@@ -24,7 +24,7 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 APP_TITLE = "Optimizador de Sistema"
-APP_VERSION = "v2.0"
+APP_VERSION = "v3.0"
 APP_SIZE = "800x900"
 
 # Colores
@@ -252,10 +252,10 @@ class OptimizeApp(ctk.CTk):
          
          # Checkbox y nombre
          checkbox = ctk.CTkCheckBox(
-               task_frame,
-               text="",
-               variable=var,
-               width=20
+            task_frame,
+            text="",
+            variable=var,
+            width=20
          )
          checkbox.pack(side="left", padx=10, pady=8)
          
@@ -264,20 +264,20 @@ class OptimizeApp(ctk.CTk):
          info_frame.pack(side="left", fill="x", expand=True, padx=5)
          
          name_label = ctk.CTkLabel(
-               info_frame,
-               text=task["name"],
-               font=("Segoe UI", 10, "bold"),
-               text_color=COLOR_SUCCESS if not task["critical"] else COLOR_WARNING,
-               anchor="w"
+            info_frame,
+            text=task["name"],
+            font=("Segoe UI", 10, "bold"),
+            text_color=COLOR_SUCCESS if not task["critical"] else COLOR_WARNING,
+            anchor="w"
          )
          name_label.pack(anchor="w")
          
          desc_label = ctk.CTkLabel(
-               info_frame,
-               text=f"{task['description']} • Tiempo estimado: {task['estimated_time']}",
-               font=("Segoe UI", 9),
-               text_color="#9e9e9e",
-               anchor="w"
+            info_frame,
+            text=f"{task['description']} • Tiempo estimado: {task['estimated_time']}",
+            font=("Segoe UI", 9),
+            text_color="#9e9e9e",
+            anchor="w"
          )
          desc_label.pack(anchor="w")
       
@@ -385,6 +385,7 @@ class OptimizeApp(ctk.CTk):
          state="disabled"
       )
       self.btn_cancel.pack(side="left", expand=True, fill="x", padx=(5, 0))
+
    
    def log(self, msg, level="INFO"):
       """Registra mensaje en el log."""

@@ -50,7 +50,7 @@ ctk.set_default_color_theme("blue")
 
 APP_TITLE = "Generador de Informes"
 APP_VERSION = f"v{__version__}"
-APP_SIZE = "800x990"
+APP_SIZE = "800x720"
 
 # Paleta de colores profesional (Azul-Negro-Blanco-Verde)
 COLOR_PRIMARY = "#1565c0"         # Azul profundo
@@ -304,232 +304,221 @@ class DiagnosticApp(ctk.CTk):
       self.after(500, self.load_system_info)
    
    def build_ui(self):
-      """Construye la interfaz de usuario moderna y profesional."""
-      
+      """Construye la interfaz de usuario con espaciado compacto."""
+
       # Marco principal
       main_frame = ctk.CTkFrame(self, fg_color=COLOR_BG_DARK)
-      main_frame.pack(fill="both", expand=True, padx=20, pady=20)
-      
-      # === ENCABEZADO MODERNO ===
+      main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+      # === ENCABEZADO COMPACTO ===
       header_frame = ctk.CTkFrame(
          main_frame,
          fg_color=COLOR_PRIMARY,
-         corner_radius=12,
-         border_width=2,
+         corner_radius=10,
+         border_width=1,
          border_color=COLOR_ACCENT
       )
-      header_frame.pack(fill="x", pady=(0, 20))
-      
+      header_frame.pack(fill="x", pady=(0, 10))
+
       title_label = ctk.CTkLabel(
          header_frame,
          text="📄 " + APP_TITLE,
          font=FONT_TITLE,
          text_color=COLOR_TEXT_WHITE
       )
-      title_label.pack(pady=(20, 5))
-      
+      title_label.pack(pady=(10, 2))
+
       subtitle_label = ctk.CTkLabel(
          header_frame,
          text=f"{__company__} | {__author__} | {APP_VERSION}",
          font=FONT_SUBTITLE,
          text_color=COLOR_ACCENT
       )
-      subtitle_label.pack(pady=(0, 10))
-      
-      copyright_label = ctk.CTkLabel(
-         header_frame,
-         text=__copyright__,
-         font=("Segoe UI", 11),
-         text_color=COLOR_TEXT_GRAY
-      )
-      copyright_label.pack(pady=(0, 15))
-      
+      subtitle_label.pack(pady=(0, 5))
+
       # === INFORMACIÓN DEL SISTEMA ===
       info_frame = ctk.CTkFrame(
          main_frame,
          fg_color=COLOR_BG_MEDIUM,
-         corner_radius=10
+         corner_radius=8
       )
-      info_frame.pack(fill="x", pady=(0, 15))
-      
+      info_frame.pack(fill="x", pady=(0, 10))
+
       info_title = ctk.CTkLabel(
          info_frame,
          text="💻 Información del Sistema Detectada",
          font=FONT_LABEL,
          text_color=COLOR_TEXT_WHITE
       )
-      info_title.pack(pady=(15, 10), anchor="w", padx=20)
-      
+      info_title.pack(pady=(8, 4), anchor="w", padx=15)
+
       self.info_text = ctk.CTkTextbox(
          info_frame,
-         width=740,
-         height=90,
+         width=700,
+         height=70,
          font=("Consolas", 11),
          fg_color=COLOR_BG_LIGHT,
          text_color=COLOR_SUCCESS,
-         border_width=2,
+         border_width=1,
          border_color=COLOR_SECONDARY
       )
-      self.info_text.pack(pady=(0, 15), padx=20)
+      self.info_text.pack(pady=(0, 8), padx=15)
       self.info_text.insert("end", "Cargando información del sistema...\n")
       self.info_text.configure(state="disabled")
-      
+
       # === FORMULARIO ===
       form_frame = ctk.CTkFrame(
          main_frame,
          fg_color=COLOR_BG_MEDIUM,
-         corner_radius=10
+         corner_radius=8
       )
-      form_frame.pack(fill="x", pady=(0, 15))
-      
+      form_frame.pack(fill="x", pady=(0, 10))
+
       form_title = ctk.CTkLabel(
          form_frame,
          text="✏️ Datos del Informe",
          font=FONT_LABEL,
          text_color=COLOR_TEXT_WHITE
       )
-      form_title.pack(pady=(15, 10), anchor="w", padx=20)
-      
+      form_title.pack(pady=(8, 5), anchor="w", padx=15)
+
       # Técnico
       ctk.CTkLabel(
          form_frame,
          text="Nombre del técnico:",
          font=FONT_INFO,
          text_color=COLOR_TEXT_WHITE
-      ).pack(pady=(0, 8), padx=20, anchor="w")
-      
+      ).pack(pady=(0, 2), padx=15, anchor="w")
+
       self.tecnico_entry = ctk.CTkEntry(
          form_frame,
          placeholder_text="Ej: Juan Pérez García",
-         width=500,
-         height=40,
+         width=450,
+         height=32,
          font=FONT_INFO,
          fg_color=COLOR_BG_LIGHT,
          text_color=COLOR_TEXT_WHITE,
          placeholder_text_color=COLOR_TEXT_GRAY,
          border_color=COLOR_SECONDARY,
-         border_width=2
+         border_width=1
       )
-      self.tecnico_entry.pack(pady=(0, 15), padx=20, anchor="w")
+      self.tecnico_entry.pack(pady=(0, 8), padx=15, anchor="w")
       self.tecnico_entry.bind("<KeyRelease>", lambda e: self.validate_form())
-      
+
       # Placa
       ctk.CTkLabel(
          form_frame,
          text="Número de placa (Activo Fijo):",
          font=FONT_INFO,
          text_color=COLOR_TEXT_WHITE
-      ).pack(pady=(0, 8), padx=20, anchor="w")
-      
+      ).pack(pady=(0, 2), padx=15, anchor="w")
+
       self.fixed_asset_entry = ctk.CTkEntry(
          form_frame,
          placeholder_text="Ej: 35094, 12345",
-         width=500,
-         height=40,
+         width=450,
+         height=32,
          font=FONT_INFO,
          fg_color=COLOR_BG_LIGHT,
          text_color=COLOR_TEXT_WHITE,
          placeholder_text_color=COLOR_TEXT_GRAY,
          border_color=COLOR_SECONDARY,
-         border_width=2
+         border_width=1
       )
-      self.fixed_asset_entry.pack(pady=(0, 15), padx=20, anchor="w")
+      self.fixed_asset_entry.pack(pady=(0, 8), padx=15, anchor="w")
       self.fixed_asset_entry.bind("<KeyRelease>", lambda e: self.validate_form())
-      
+
       # Caso
       ctk.CTkLabel(
          form_frame,
          text="Número de caso en Mayté:",
          font=FONT_INFO,
          text_color=COLOR_TEXT_WHITE
-      ).pack(pady=(0, 8), padx=20, anchor="w")
-      
+      ).pack(pady=(0, 2), padx=15, anchor="w")
+
       self.ticket_entry = ctk.CTkEntry(
          form_frame,
          placeholder_text="Ej: 41233, 20241",
-         width=500,
-         height=40,
+         width=450,
+         height=32,
          font=FONT_INFO,
          fg_color=COLOR_BG_LIGHT,
          text_color=COLOR_TEXT_WHITE,
          placeholder_text_color=COLOR_TEXT_GRAY,
          border_color=COLOR_SECONDARY,
-         border_width=2
+         border_width=1
       )
-      self.ticket_entry.pack(pady=(0, 8), padx=20, anchor="w")
+      self.ticket_entry.pack(pady=(0, 5), padx=15, anchor="w")
       self.ticket_entry.bind("<KeyRelease>", lambda e: self.validate_form())
       self.ticket_entry.bind("<Return>", lambda e: self.generar_reporte())
-      
+
       self.validation_label = ctk.CTkLabel(
          form_frame,
          text="",
          font=("Segoe UI", 11),
          text_color=COLOR_WARNING
       )
-      self.validation_label.pack(pady=(0, 15), padx=20, anchor="w")
-      
-      # === ÁREA DE LOGS ===
+      self.validation_label.pack(pady=(0, 8), padx=15, anchor="w")
+
+      # === LOGS ===
       log_label = ctk.CTkLabel(
          main_frame,
          text="📝 Estado de Generación",
          font=FONT_LABEL,
-         text_color=COLOR_TEXT_WHITE,
-         anchor="w"
+         text_color=COLOR_TEXT_WHITE
       )
-      log_label.pack(pady=(5, 8), anchor="w")
-      
+      log_label.pack(pady=(4, 4), anchor="w", padx=5)
+
       self.output_box = ctk.CTkTextbox(
          main_frame,
-         width=740,
-         height=120,
+         width=700,
+         height=90,
          font=FONT_CONSOLE,
          fg_color=COLOR_BG_LIGHT,
          text_color=COLOR_TEXT_WHITE,
-         border_width=2,
+         border_width=1,
          border_color=COLOR_SECONDARY,
-         corner_radius=10
+         corner_radius=8
       )
-      self.output_box.pack(pady=(0, 15))
-      self.log("✓ Sistema inicializado correctamente", "SUCCESS")
-      self.log(f"✓ Licencia: {__license__}", "INFO")
-      
+      self.output_box.pack(pady=(0, 10))
+
       # === BOTONES ===
       button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
       button_frame.pack(fill="x")
-      
+
       self.generate_button = ctk.CTkButton(
          button_frame,
          text="🚀 Generar Informe PDF",
          command=self.generar_reporte,
          font=FONT_BUTTON,
-         height=50,
-         corner_radius=10,
+         height=42,
+         corner_radius=8,
          fg_color=COLOR_PRIMARY,
          hover_color=COLOR_SECONDARY,
-         border_width=3,
+         border_width=2,
          border_color=COLOR_ACCENT,
          text_color=COLOR_TEXT_WHITE,
          state="disabled"
       )
-      self.generate_button.pack(side="left", expand=True, fill="x", padx=(0, 8))
-      
+      self.generate_button.pack(side="left", expand=True, fill="x", padx=(0, 5))
+
       self.clear_button = ctk.CTkButton(
          button_frame,
          text="🗑️ Limpiar Campos",
          command=self.clear_fields,
          font=FONT_BUTTON,
-         height=50,
-         corner_radius=10,
+         height=42,
+         corner_radius=8,
          fg_color=COLOR_BG_LIGHT,
          hover_color=COLOR_BG_MEDIUM,
-         border_width=2,
+         border_width=1,
          border_color=COLOR_SECONDARY,
          text_color=COLOR_TEXT_WHITE
       )
-      self.clear_button.pack(side="left", fill="x", padx=(8, 0))
-      
-      # Atajos de teclado
+      self.clear_button.pack(side="left", fill="x", padx=(5, 0))
+
       self.bind("<Escape>", lambda e: self.quit())
+
    
    def log(self, msg, level="INFO"):
       """Registra mensajes en el log con formato."""
