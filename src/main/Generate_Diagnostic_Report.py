@@ -32,6 +32,7 @@ import re
 import hashlib
 import ctypes
 
+
 # ============================================================================
 # INFORMACIÓN DE COPYRIGHT Y LICENCIA
 # ============================================================================
@@ -73,11 +74,20 @@ FONT_BUTTON = ("Segoe UI", 14, "bold")         # Era 12
 FONT_LABEL = ("Segoe UI", 13, "bold")          # Era 11
 FONT_INFO = ("Segoe UI", 13)                   # Era 11
 
-# Rutas de logos (relativas al script)
-LOGO_DIR = Path(__file__).parent.parent.parent / "static" / "logos"
-LOGO_PROQUINAL = LOGO_DIR / "proquinal.png"
-LOGO_MAYTE = LOGO_DIR / "mayte.png"
-LOGO_STEFANINI = LOGO_DIR / "stefanini.png"
+def resource_path(relative_path):
+   """Obtiene la ruta de un recurso tanto si se ejecuta como .py o .exe"""
+   try:
+      base_path = sys._MEIPASS  # carpeta temporal del .exe
+   except Exception:
+      base_path = os.path.abspath(".")  # cuando ejecutas .py
+
+   return os.path.join(base_path, relative_path)
+
+
+# Rutas de logos
+LOGO_PROQUINAL  = Path(resource_path("static/logos/proquinal.png"))
+LOGO_MAYTE      = Path(resource_path("static/logos/mayte.png"))
+LOGO_STEFANINI  = Path(resource_path("static/logos/stefanini.png"))
 
 
 # ============================================================================

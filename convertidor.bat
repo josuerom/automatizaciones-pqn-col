@@ -12,14 +12,16 @@ echo.
 cd /d %~dp0
 
 set /p exeName=Nombre para el archivo .EXE: 
-set /p pyFile=Nombre del programa .PY: 
+set /p  pyFile=Nombre  del  programa   .PY: 
 echo.
 
-python -m PyInstaller --onefile --noconsole --name="%exeName%" --icon="static\ico\icono.ico" src\main\%pyFile%.py
+python -m PyInstaller --onefile --noconsole --add-data "static\logos\proquinal.png;static/logos" --add-data "static\logos\mayte.png;static/logos" --add-data "static\logos\stefanini.png;static/logos" --icon="static\ico\icono.ico" --name="%exeName%" src\main\%pyFile%.py
+@REM python -m PyInstaller --onefile --noconsole --name="%exeName%" --icon="static\ico\icono.ico" src\main\%pyFile%.py
+
 del "%pyFile%.spec"
 
 echo.
-echo Iniciando programa para prueba de funcionalidad...
+echo Iniciando ejecutable para prueba de funcionalidad...
 .\dist\%exeName%.exe
 
 echo.
