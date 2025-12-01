@@ -246,7 +246,7 @@ class CredencialesApp(ctk.CTk):
       # Configuración de ventana
       self.title(f"{APP_TITLE} {APP_VERSION}")
       self.geometry(APP_SIZE)
-      self.resizable(False, False)
+      self.resizable(True, True)
       
       # Variables de estado
       self.password_visible = False
@@ -256,77 +256,81 @@ class CredencialesApp(ctk.CTk):
       self.build_ui()
    
    def build_ui(self):
-      """Construye la interfaz de usuario moderna y profesional."""
-      
-      # Marco principal
-      main_frame = ctk.CTkFrame(self, fg_color=COLOR_BG_DARK)
-      main_frame.pack(fill="both", expand=True, padx=10, pady=10)  # Reducir padding general
-      
+      """Construye la interfaz de usuario moderna y profesional con scroll."""
+
+      # Marco principal con scroll
+      main_scrollable = ctk.CTkScrollableFrame(
+         self, 
+         fg_color=COLOR_BG_DARK,
+         scrollbar_button_color=COLOR_PRIMARY,
+         scrollbar_button_hover_color=COLOR_SECONDARY
+      )
+      main_scrollable.pack(fill="both", expand=True, padx=10, pady=10)
+
       # === ENCABEZADO MODERNO ===
       header_frame = ctk.CTkFrame(
-         main_frame,
+         main_scrollable,
          fg_color=COLOR_PRIMARY,
          corner_radius=12,
          border_width=2,
          border_color=COLOR_ACCENT
       )
-      header_frame.pack(fill="x", pady=(0, 10))  # Reducir espacio inferior
-      
+      header_frame.pack(fill="x", pady=(0, 10))
+
       title_label = ctk.CTkLabel(
          header_frame,
          text="🔐 " + APP_TITLE,
          font=FONT_TITLE,
          text_color=COLOR_TEXT_WHITE
       )
-      title_label.pack(pady=(10, 3))  # Reducir el espaciado arriba y abajo
-      
+      title_label.pack(pady=(10, 3))
+
       subtitle_label = ctk.CTkLabel(
          header_frame,
          text=f"{__company__} | {__author__} | {APP_VERSION}",
          font=FONT_SUBTITLE,
          text_color=COLOR_ACCENT
       )
-      subtitle_label.pack(pady=(0, 5))  # Reducir espacio inferior
-      
+      subtitle_label.pack(pady=(0, 5))
+
       copyright_label = ctk.CTkLabel(
          header_frame,
          text=__copyright__,
          font=("Segoe UI", 11),
          text_color=COLOR_TEXT_GRAY
       )
-      copyright_label.pack(pady=(0, 10))  # Reducir espacio inferior
-      
+      copyright_label.pack(pady=(0, 10))
+
       # === FORMULARIO ===
       form_frame = ctk.CTkFrame(
-         main_frame,
+         main_scrollable,
          fg_color=COLOR_BG_MEDIUM,
          corner_radius=10
       )
-      form_frame.pack(fill="x", pady=(0, 10))  # Reducir espacio inferior
-      
+      form_frame.pack(fill="x", pady=(0, 10))
+
       form_title = ctk.CTkLabel(
          form_frame,
          text="📝 Información de las Credenciales",
          font=FONT_LABEL,
          text_color=COLOR_TEXT_WHITE
       )
-      form_title.pack(pady=(10, 10), anchor="w", padx=15)  # Reducir espaciado
-      
+      form_title.pack(pady=(10, 10), anchor="w", padx=15)
+
       # Correo corporativo
       ctk.CTkLabel(
          form_frame,
          text="Correo corporativo (sin @spradling.group):",
          font=FONT_INFO,
          text_color=COLOR_TEXT_WHITE
-      ).pack(pady=(0, 5), padx=15, anchor="w")  # Reducir espaciado
-      
+      ).pack(pady=(0, 5), padx=15, anchor="w")
+
       correo_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
-      correo_frame.pack(pady=(0, 5), padx=15, anchor="w")  # Reducir espaciado
-      
+      correo_frame.pack(pady=(0, 5), padx=15, anchor="w", fill="x")
+
       self.correo_entry = ctk.CTkEntry(
          correo_frame,
          placeholder_text="Ej: juan.perez",
-         width=350,
          height=40,
          font=FONT_INFO,
          fg_color=COLOR_BG_LIGHT,
@@ -335,39 +339,38 @@ class CredencialesApp(ctk.CTk):
          border_color=COLOR_SECONDARY,
          border_width=2
       )
-      self.correo_entry.pack(side="left")
+      self.correo_entry.pack(side="left", fill="x", expand=True)
       self.correo_entry.bind("<KeyRelease>", lambda e: self.validate_form())
-      
+
       ctk.CTkLabel(
          correo_frame,
          text=DOMAIN,
          font=("Segoe UI", 13, "bold"),
          text_color=COLOR_PRIMARY
-      ).pack(side="left", padx=(5, 0))  # Reducir espacio
-      
+      ).pack(side="left", padx=(5, 0))
+
       self.correo_validation = ctk.CTkLabel(
          form_frame,
          text="",
          font=("Segoe UI", 11),
          text_color=COLOR_WARNING
       )
-      self.correo_validation.pack(pady=(0, 10), padx=15, anchor="w")  # Reducir espacio
-      
+      self.correo_validation.pack(pady=(0, 10), padx=15, anchor="w")
+
       # Contraseña
       ctk.CTkLabel(
          form_frame,
          text="Contraseña de acceso:",
          font=FONT_INFO,
          text_color=COLOR_TEXT_WHITE
-      ).pack(pady=(0, 5), padx=15, anchor="w")  # Reducir espacio
-      
+      ).pack(pady=(0, 5), padx=15, anchor="w")
+
       pass_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
-      pass_frame.pack(pady=(0, 5), padx=15, anchor="w")  # Reducir espacio
-      
+      pass_frame.pack(pady=(0, 5), padx=15, anchor="w", fill="x")
+
       self.pass_entry = ctk.CTkEntry(
          pass_frame,
          placeholder_text="Mínimo 8 caracteres",
-         width=350,
          height=40,
          font=FONT_INFO,
          fg_color=COLOR_BG_LIGHT,
@@ -377,9 +380,9 @@ class CredencialesApp(ctk.CTk):
          border_width=2,
          show="●"
       )
-      self.pass_entry.pack(side="left")
+      self.pass_entry.pack(side="left", fill="x", expand=True)
       self.pass_entry.bind("<KeyRelease>", lambda e: self.validate_form())
-      
+
       self.toggle_pass_btn = ctk.CTkButton(
          pass_frame,
          text="👁",
@@ -390,8 +393,8 @@ class CredencialesApp(ctk.CTk):
          fg_color=COLOR_BG_LIGHT,
          hover_color=COLOR_BG_MEDIUM
       )
-      self.toggle_pass_btn.pack(side="left", padx=(5, 0))  # Reducir espacio
-      
+      self.toggle_pass_btn.pack(side="left", padx=(5, 0))
+
       self.generate_pass_btn = ctk.CTkButton(
          pass_frame,
          text="🎲",
@@ -402,28 +405,27 @@ class CredencialesApp(ctk.CTk):
          fg_color=COLOR_PRIMARY,
          hover_color=COLOR_SECONDARY
       )
-      self.generate_pass_btn.pack(side="left", padx=(5, 0))  # Reducir espacio
-      
+      self.generate_pass_btn.pack(side="left", padx=(5, 0))
+
       self.pass_validation = ctk.CTkLabel(
          form_frame,
          text="",
          font=("Segoe UI", 11),
          text_color=COLOR_WARNING
       )
-      self.pass_validation.pack(pady=(0, 10), padx=15, anchor="w")  # Reducir espacio
-      
+      self.pass_validation.pack(pady=(0, 10), padx=15, anchor="w")
+
       # Usuario de Windows/VPN
       ctk.CTkLabel(
          form_frame,
          text="Usuario de Windows/VPN:",
          font=FONT_INFO,
          text_color=COLOR_TEXT_WHITE
-      ).pack(pady=(0, 5), padx=15, anchor="w")  # Reducir espacio
-      
+      ).pack(pady=(0, 5), padx=15, anchor="w")
+
       self.user_entry = ctk.CTkEntry(
          form_frame,
          placeholder_text="Ej: perez-pepito",
-         width=450,
          height=40,
          font=FONT_INFO,
          fg_color=COLOR_BG_LIGHT,
@@ -432,37 +434,36 @@ class CredencialesApp(ctk.CTk):
          border_color=COLOR_SECONDARY,
          border_width=2
       )
-      self.user_entry.pack(pady=(0, 5), padx=15, anchor="w")  # Reducir espacio
+      self.user_entry.pack(pady=(0, 5), padx=15, anchor="w", fill="x")
       self.user_entry.bind("<KeyRelease>", lambda e: self.validate_form())
       self.user_entry.bind("<Return>", lambda e: self.generate_pdf())
-      
+
       self.user_validation = ctk.CTkLabel(
          form_frame,
          text="",
          font=("Segoe UI", 11),
          text_color=COLOR_WARNING
       )
-      self.user_validation.pack(pady=(0, 10), padx=15, anchor="w")  # Reducir espacio
-      
+      self.user_validation.pack(pady=(0, 10), padx=15, anchor="w")
+
       # === VISTA PREVIA ===
       preview_frame = ctk.CTkFrame(
-         main_frame,
+         main_scrollable,
          fg_color=COLOR_BG_MEDIUM,
          corner_radius=10
       )
-      preview_frame.pack(fill="x", pady=(0, 10))  # Reducir espacio inferior
-      
+      preview_frame.pack(fill="x", pady=(0, 10))
+
       preview_title = ctk.CTkLabel(
          preview_frame,
          text="👁 Vista Previa",
          font=FONT_LABEL,
          text_color=COLOR_TEXT_WHITE
       )
-      preview_title.pack(pady=(10, 5), anchor="w", padx=15)  # Reducir espacio
-      
+      preview_title.pack(pady=(10, 5), anchor="w", padx=15)
+
       self.preview_text = ctk.CTkTextbox(
          preview_frame,
-         width=640,
          height=220,
          font=FONT_CONSOLE,
          fg_color=COLOR_BG_LIGHT,
@@ -470,23 +471,23 @@ class CredencialesApp(ctk.CTk):
          border_width=2,
          border_color=COLOR_SECONDARY
       )
-      self.preview_text.pack(pady=(0, 10), padx=15)
+      self.preview_text.pack(pady=(0, 10), padx=15, fill="x")
       self.preview_text.insert("end", "Complete los campos para ver la vista previa...\n")
       self.preview_text.configure(state="disabled")
-      
-       # === VALIDACIÓN GENERAL ===
+
+      # === VALIDACIÓN GENERAL ===
       self.validation_general = ctk.CTkLabel(
-         main_frame,
+         main_scrollable,
          text="",
          font=("Segoe UI", 12, "bold"),
          text_color=COLOR_WARNING
       )
-      self.validation_general.pack(pady=(0, 10))  # Reducir espacio inferior
-      
+      self.validation_general.pack(pady=(0, 10))
+
       # === BOTONES ===
-      button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-      button_frame.pack(fill="x", pady=(10, 0))  # Ajustar espacio para los botones
-      
+      button_frame = ctk.CTkFrame(main_scrollable, fg_color="transparent")
+      button_frame.pack(fill="x", pady=(10, 0))
+
       self.generate_button = ctk.CTkButton(
          button_frame,
          text="🚀 Generar PDF de Credenciales",
@@ -501,8 +502,8 @@ class CredencialesApp(ctk.CTk):
          text_color=COLOR_TEXT_WHITE,
          state="disabled"
       )
-      self.generate_button.pack(side="left", expand=True, fill="x", padx=(0, 5))  # Ajustar espacio
-      
+      self.generate_button.pack(side="left", expand=True, fill="x", padx=(0, 5))
+
       self.clear_button = ctk.CTkButton(
          button_frame,
          text="🗑️ Limpiar Campos",
@@ -516,8 +517,7 @@ class CredencialesApp(ctk.CTk):
          border_color=COLOR_SECONDARY,
          text_color=COLOR_TEXT_WHITE
       )
-      self.clear_button.pack(side="left", fill="x", padx=(5, 0))  # Ajustar espacio
-
+      self.clear_button.pack(side="left", fill="x", padx=(5, 0))
    
    def toggle_password_visibility(self):
       """Alterna visibilidad de la contraseña."""

@@ -157,7 +157,7 @@ class AutoPilotApp(ctk.CTk):
       # Configuración de la ventana
       self.title(f"{APP_TITLE} {APP_VERSION}")
       self.geometry(APP_SIZE)
-      self.resizable(False, False)
+      self.resizable(True, True)
       
       # Variables de estado
       self.is_processing = False
@@ -170,21 +170,26 @@ class AutoPilotApp(ctk.CTk):
       self.after(500, self.initial_check)
    
    def build_ui(self):
-      """Construye la interfaz de usuario moderna."""
+      """Construye la interfaz de usuario moderna con scroll."""
       
-      # Marco principal
-      main_frame = ctk.CTkFrame(self, fg_color=COLOR_BG_DARK)
-      main_frame.pack(fill="both", expand=True, padx=10, pady=10)  # Menos espacio en los márgenes
+      # Marco principal con scroll
+      main_scrollable = ctk.CTkScrollableFrame(
+         self, 
+         fg_color=COLOR_BG_DARK,
+         scrollbar_button_color=COLOR_SECONDARY,
+         scrollbar_button_hover_color=COLOR_ACCENT
+      )
+      main_scrollable.pack(fill="both", expand=True, padx=10, pady=10)
       
       # === ENCABEZADO MODERNO ===
       header_frame = ctk.CTkFrame(
-         main_frame,
+         main_scrollable,
          fg_color=COLOR_PRIMARY,
          corner_radius=12,
          border_width=2,
          border_color=COLOR_ACCENT
       )
-      header_frame.pack(fill="x", pady=(0, 10))  # Reducir el espacio inferior
+      header_frame.pack(fill="x", pady=(0, 10))
 
       title_label = ctk.CTkLabel(
          header_frame,
@@ -192,7 +197,7 @@ class AutoPilotApp(ctk.CTk):
          font=FONT_TITLE,
          text_color=COLOR_TEXT_WHITE
       )
-      title_label.pack(pady=(10, 2))  # Reducir el espaciado superior e inferior
+      title_label.pack(pady=(10, 2))
 
       subtitle_label = ctk.CTkLabel(
          header_frame,
@@ -200,7 +205,7 @@ class AutoPilotApp(ctk.CTk):
          font=FONT_SUBTITLE,
          text_color=COLOR_ACCENT
       )
-      subtitle_label.pack(pady=(0, 5))  # Reducir espacio inferior
+      subtitle_label.pack(pady=(0, 5))
 
       copyright_label = ctk.CTkLabel(
          header_frame,
@@ -208,15 +213,15 @@ class AutoPilotApp(ctk.CTk):
          font=("Segoe UI", 11),
          text_color=COLOR_TEXT_GRAY
       )
-      copyright_label.pack(pady=(0, 10))  # Reducir el espaciado inferior
+      copyright_label.pack(pady=(0, 10))
 
       # === INFORMACIÓN DEL SISTEMA ===
       info_frame = ctk.CTkFrame(
-         main_frame,
+         main_scrollable,
          fg_color=COLOR_BG_MEDIUM,
          corner_radius=10
       )
-      info_frame.pack(fill="x", pady=(0, 10))  # Reducir espacio inferior
+      info_frame.pack(fill="x", pady=(0, 10))
 
       info_title = ctk.CTkLabel(
          info_frame,
@@ -224,7 +229,7 @@ class AutoPilotApp(ctk.CTk):
          font=FONT_INFO,
          text_color=COLOR_TEXT_WHITE
       )
-      info_title.pack(pady=(10, 5), anchor="w", padx=10)  # Reducir espaciado vertical
+      info_title.pack(pady=(10, 5), anchor="w", padx=10)
 
       self.serial_label = ctk.CTkLabel(
          info_frame,
@@ -233,7 +238,7 @@ class AutoPilotApp(ctk.CTk):
          text_color=COLOR_TEXT_WHITE,
          anchor="w"
       )
-      self.serial_label.pack(pady=3, padx=10, anchor="w")  # Reducir espaciado
+      self.serial_label.pack(pady=3, padx=10, anchor="w")
 
       self.status_label = ctk.CTkLabel(
          info_frame,
@@ -242,20 +247,20 @@ class AutoPilotApp(ctk.CTk):
          text_color=COLOR_SUCCESS,
          anchor="w"
       )
-      self.status_label.pack(pady=(0, 10), padx=10, anchor="w")  # Reducir espaciado inferior
+      self.status_label.pack(pady=(0, 10), padx=10, anchor="w")
 
       # === ÁREA DE LOGS ===
       log_label = ctk.CTkLabel(
-         main_frame,
+         main_scrollable,
          text="📝 Registro de Actividad",
          font=FONT_INFO,
          text_color=COLOR_TEXT_WHITE,
          anchor="w"
       )
-      log_label.pack(pady=(5, 5), anchor="w")  # Reducir espaciado
+      log_label.pack(pady=(5, 5), anchor="w")
 
       self.output_box = ctk.CTkTextbox(
-         main_frame,
+         main_scrollable,
          width=640,
          height=220,
          font=FONT_CONSOLE,
@@ -265,25 +270,24 @@ class AutoPilotApp(ctk.CTk):
          border_color=COLOR_SECONDARY,
          corner_radius=10
       )
-      self.output_box.pack(pady=(0, 10))  # Reducir espacio inferior
+      self.output_box.pack(pady=(0, 10), fill="x")
       self.log("✓ Sistema inicializado correctamente", "SUCCESS")
       self.log(f"✓ Licencia: {__license__}", "INFO")
 
       # === BARRA DE PROGRESO ===
       self.progress_bar = ctk.CTkProgressBar(
-         main_frame,
-         width=640,
+         main_scrollable,
          height=10,
          corner_radius=5,
          progress_color=COLOR_SECONDARY,
          fg_color=COLOR_BG_MEDIUM
       )
-      self.progress_bar.pack(pady=(0, 10))  # Reducir espacio inferior
+      self.progress_bar.pack(pady=(0, 10), fill="x")
       self.progress_bar.set(0)
 
       # === BOTÓN PRINCIPAL (ÚNICO) ===
       self.run_button = ctk.CTkButton(
-         main_frame,
+         main_scrollable,
          text="🚀 Inscribir Equipo Ahora",
          command=self.on_execute_clicked,
          font=FONT_BUTTON,
@@ -295,12 +299,11 @@ class AutoPilotApp(ctk.CTk):
          border_color=COLOR_ACCENT,
          text_color=COLOR_TEXT_WHITE
       )
-      self.run_button.pack(fill="x", pady=(15, 10))  # Ajustar el espaciado inferior
+      self.run_button.pack(fill="x", pady=(15, 10))
 
       # Atajos de teclado
       self.bind("<Return>", lambda e: self.on_execute_clicked())
       self.bind("<Escape>", lambda e: self.quit())
-
    
    def log(self, msg, level="INFO"):
       """Registra mensajes en el log con formato y color."""

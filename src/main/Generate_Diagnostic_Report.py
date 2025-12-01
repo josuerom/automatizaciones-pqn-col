@@ -301,7 +301,7 @@ class DiagnosticApp(ctk.CTk):
       # Configuración de ventana
       self.title(f"{APP_TITLE} {APP_VERSION}")
       self.geometry(APP_SIZE)
-      self.resizable(False, False)
+      self.resizable(True, True)
       
       # Variables de estado
       self.system_info = None
@@ -314,15 +314,20 @@ class DiagnosticApp(ctk.CTk):
       self.after(500, self.load_system_info)
    
    def build_ui(self):
-      """Construye la interfaz de usuario con espaciado compacto."""
+      """Construye la interfaz de usuario con espaciado compacto y scroll."""
 
-      # Marco principal
-      main_frame = ctk.CTkFrame(self, fg_color=COLOR_BG_DARK)
-      main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+      # Marco principal con scroll
+      main_scrollable = ctk.CTkScrollableFrame(
+         self, 
+         fg_color=COLOR_BG_DARK,
+         scrollbar_button_color=COLOR_SECONDARY,
+         scrollbar_button_hover_color=COLOR_ACCENT
+      )
+      main_scrollable.pack(fill="both", expand=True, padx=10, pady=10)
 
       # === ENCABEZADO COMPACTO ===
       header_frame = ctk.CTkFrame(
-         main_frame,
+         main_scrollable,
          fg_color=COLOR_PRIMARY,
          corner_radius=10,
          border_width=1,
@@ -348,7 +353,7 @@ class DiagnosticApp(ctk.CTk):
 
       # === INFORMACIÓN DEL SISTEMA ===
       info_frame = ctk.CTkFrame(
-         main_frame,
+         main_scrollable,
          fg_color=COLOR_BG_MEDIUM,
          corner_radius=8
       )
@@ -364,7 +369,6 @@ class DiagnosticApp(ctk.CTk):
 
       self.info_text = ctk.CTkTextbox(
          info_frame,
-         width=700,
          height=70,
          font=("Consolas", 11),
          fg_color=COLOR_BG_LIGHT,
@@ -372,13 +376,13 @@ class DiagnosticApp(ctk.CTk):
          border_width=1,
          border_color=COLOR_SECONDARY
       )
-      self.info_text.pack(pady=(0, 8), padx=15)
+      self.info_text.pack(pady=(0, 8), padx=15, fill="x")
       self.info_text.insert("end", "Cargando información del sistema...\n")
       self.info_text.configure(state="disabled")
 
       # === FORMULARIO ===
       form_frame = ctk.CTkFrame(
-         main_frame,
+         main_scrollable,
          fg_color=COLOR_BG_MEDIUM,
          corner_radius=8
       )
@@ -403,7 +407,6 @@ class DiagnosticApp(ctk.CTk):
       self.tecnico_entry = ctk.CTkEntry(
          form_frame,
          placeholder_text="Ej: Juan Pérez García",
-         width=450,
          height=32,
          font=FONT_INFO,
          fg_color=COLOR_BG_LIGHT,
@@ -412,7 +415,7 @@ class DiagnosticApp(ctk.CTk):
          border_color=COLOR_SECONDARY,
          border_width=1
       )
-      self.tecnico_entry.pack(pady=(0, 8), padx=15, anchor="w")
+      self.tecnico_entry.pack(pady=(0, 8), padx=15, anchor="w", fill="x")
       self.tecnico_entry.bind("<KeyRelease>", lambda e: self.validate_form())
 
       # Placa
@@ -426,7 +429,6 @@ class DiagnosticApp(ctk.CTk):
       self.fixed_asset_entry = ctk.CTkEntry(
          form_frame,
          placeholder_text="Ej: 35094, 12345",
-         width=450,
          height=32,
          font=FONT_INFO,
          fg_color=COLOR_BG_LIGHT,
@@ -435,7 +437,7 @@ class DiagnosticApp(ctk.CTk):
          border_color=COLOR_SECONDARY,
          border_width=1
       )
-      self.fixed_asset_entry.pack(pady=(0, 8), padx=15, anchor="w")
+      self.fixed_asset_entry.pack(pady=(0, 8), padx=15, anchor="w", fill="x")
       self.fixed_asset_entry.bind("<KeyRelease>", lambda e: self.validate_form())
 
       # Caso
@@ -449,7 +451,6 @@ class DiagnosticApp(ctk.CTk):
       self.ticket_entry = ctk.CTkEntry(
          form_frame,
          placeholder_text="Ej: 41233, 20241",
-         width=450,
          height=32,
          font=FONT_INFO,
          fg_color=COLOR_BG_LIGHT,
@@ -458,7 +459,7 @@ class DiagnosticApp(ctk.CTk):
          border_color=COLOR_SECONDARY,
          border_width=1
       )
-      self.ticket_entry.pack(pady=(0, 5), padx=15, anchor="w")
+      self.ticket_entry.pack(pady=(0, 5), padx=15, anchor="w", fill="x")
       self.ticket_entry.bind("<KeyRelease>", lambda e: self.validate_form())
       self.ticket_entry.bind("<Return>", lambda e: self.generar_reporte())
 
@@ -472,7 +473,7 @@ class DiagnosticApp(ctk.CTk):
 
       # === LOGS ===
       log_label = ctk.CTkLabel(
-         main_frame,
+         main_scrollable,
          text="📝 Estado de Generación",
          font=FONT_LABEL,
          text_color=COLOR_TEXT_WHITE
@@ -480,8 +481,7 @@ class DiagnosticApp(ctk.CTk):
       log_label.pack(pady=(4, 4), anchor="w", padx=5)
 
       self.output_box = ctk.CTkTextbox(
-         main_frame,
-         width=700,
+         main_scrollable,
          height=90,
          font=FONT_CONSOLE,
          fg_color=COLOR_BG_LIGHT,
@@ -490,10 +490,10 @@ class DiagnosticApp(ctk.CTk):
          border_color=COLOR_SECONDARY,
          corner_radius=8
       )
-      self.output_box.pack(pady=(0, 10))
+      self.output_box.pack(pady=(0, 10), fill="x")
 
       # === BOTONES ===
-      button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+      button_frame = ctk.CTkFrame(main_scrollable, fg_color="transparent")
       button_frame.pack(fill="x")
 
       self.generate_button = ctk.CTkButton(
@@ -528,7 +528,6 @@ class DiagnosticApp(ctk.CTk):
       self.clear_button.pack(side="left", fill="x", padx=(5, 0))
 
       self.bind("<Escape>", lambda e: self.quit())
-
    
    def log(self, msg, level="INFO"):
       """Registra mensajes en el log con formato."""

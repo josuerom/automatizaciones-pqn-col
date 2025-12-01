@@ -120,7 +120,7 @@ OPTIMIZATION_TASKS = [
    {
       "id": "winget_update",
       "name": "Actualizar Programas (Winget)",
-      "description": "Actualiza todos los programas excepto Java SE 8",
+      "description": "Actualiza todos los programas excepto el JRE 8 341",
       "command": "powershell",  # Comando especial manejado por función
       "estimated_time": "5-15 min",
       "enabled": True,
@@ -179,7 +179,7 @@ class OptimizeApp(ctk.CTk):
       # Configuración
       self.title(f"{APP_TITLE} {APP_VERSION}")
       self.geometry(APP_SIZE)
-      self.resizable(False, False)
+      self.resizable(True, True)
       
       # Variables
       self.is_processing = False
@@ -193,15 +193,33 @@ class OptimizeApp(ctk.CTk):
       # Verificar prerequisitos
       self.after(300, self.check_prerequisites)
    
+   # ============================================================================
+# MODIFICACIONES PARA MAXIMIZAR Y AGREGAR SCROLL
+# ============================================================================
+
+# EN EL MÉTODO __init__, CAMBIAR ESTA LÍNEA:
+# self.resizable(False, False)
+# POR:
+self.resizable(True, True)
+
+# ============================================================================
+# MÉTODO build_ui() MODIFICADO CON SCROLL
+# ============================================================================
+
    def build_ui(self):
-      """Construye la interfaz."""
+      """Construye la interfaz con scroll."""
       
-      # Marco principal
-      main_frame = ctk.CTkFrame(self, fg_color=COLOR_BG_DARK)
-      main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+      # Marco principal con scroll
+      main_scrollable = ctk.CTkScrollableFrame(
+         self, 
+         fg_color=COLOR_BG_DARK,
+         scrollbar_button_color=COLOR_PRIMARY,
+         scrollbar_button_hover_color="#1976d2"
+      )
+      main_scrollable.pack(fill="both", expand=True, padx=15, pady=15)
       
       # === ENCABEZADO ===
-      header_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_PRIMARY, corner_radius=10)
+      header_frame = ctk.CTkFrame(main_scrollable, fg_color=COLOR_PRIMARY, corner_radius=10)
       header_frame.pack(fill="x", pady=(0, 15))
       
       title_label = ctk.CTkLabel(
@@ -221,8 +239,8 @@ class OptimizeApp(ctk.CTk):
       subtitle_label.pack(pady=(0, 15))
       
       # === SELECCIÓN DE TAREAS ===
-      tasks_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_BG_LIGHT, corner_radius=8)
-      tasks_frame.pack(fill="both", expand=True, pady=(0, 10))
+      tasks_frame = ctk.CTkFrame(main_scrollable, fg_color=COLOR_BG_LIGHT, corner_radius=8)
+      tasks_frame.pack(fill="x", expand=True, pady=(0, 10))
       
       tasks_title = ctk.CTkLabel(
          tasks_frame,
@@ -235,11 +253,10 @@ class OptimizeApp(ctk.CTk):
       # Scrollable frame para tareas
       tasks_scroll = ctk.CTkScrollableFrame(
          tasks_frame,
-         width=730,
          height=230,
          fg_color="transparent"
       )
-      tasks_scroll.pack(padx=15, pady=(0, 10))
+      tasks_scroll.pack(padx=15, pady=(0, 10), fill="x")
       
       # Crear checkboxes para cada tarea
       for task in OPTIMIZATION_TASKS:
@@ -313,7 +330,7 @@ class OptimizeApp(ctk.CTk):
       ).pack(side="left", padx=5)
       
       # === PROGRESO ===
-      progress_frame = ctk.CTkFrame(main_frame, fg_color=COLOR_BG_LIGHT, corner_radius=8)
+      progress_frame = ctk.CTkFrame(main_scrollable, fg_color=COLOR_BG_LIGHT, corner_radius=8)
       progress_frame.pack(fill="x", pady=(0, 10))
       
       self.progress_label = ctk.CTkLabel(
@@ -326,17 +343,16 @@ class OptimizeApp(ctk.CTk):
       
       self.progress_bar = ctk.CTkProgressBar(
          progress_frame,
-         width=730,
          height=10,
          corner_radius=5,
          progress_color=COLOR_PRIMARY
       )
-      self.progress_bar.pack(pady=(0, 10), padx=15)
+      self.progress_bar.pack(pady=(0, 10), padx=15, fill="x")
       self.progress_bar.set(0)
       
       # === LOG ===
       log_label = ctk.CTkLabel(
-         main_frame,
+         main_scrollable,
          text="📝 Registro de Actividad",
          font=FONT_LABEL,
          text_color=COLOR_TEXT,
@@ -345,8 +361,7 @@ class OptimizeApp(ctk.CTk):
       log_label.pack(pady=(5, 5), anchor="w")
       
       self.text_log = ctk.CTkTextbox(
-         main_frame,
-         width=750,
+         main_scrollable,
          height=180,
          font=FONT_CONSOLE,
          fg_color=COLOR_BG_LIGHT,
@@ -355,10 +370,10 @@ class OptimizeApp(ctk.CTk):
          border_color=COLOR_PRIMARY,
          corner_radius=8
       )
-      self.text_log.pack(pady=(0, 10))
+      self.text_log.pack(pady=(0, 10), fill="x")
       
       # === BOTONES ===
-      button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+      button_frame = ctk.CTkFrame(main_scrollable, fg_color="transparent")
       button_frame.pack(fill="x")
       
       self.btn_run = ctk.CTkButton(
@@ -385,7 +400,6 @@ class OptimizeApp(ctk.CTk):
          state="disabled"
       )
       self.btn_cancel.pack(side="left", expand=True, fill="x", padx=(5, 0))
-
    
    def log(self, msg, level="INFO"):
       """Registra mensaje en el log."""
