@@ -1087,4 +1087,65 @@ class RenamerApp(ctk.CTk):
                     "• Credenciales de dominio incorrectas\n"
                     "• Restricciones de políticas de grupo\n"
                     "• Problemas de conectividad con el dominio\n\n"
-          
+                    "Contacte al administrador del sistema.",
+                ),
+            )
+
+        finally:
+            # Restaurar estado de la interfaz
+            self.is_processing = False
+            self.after(
+                100,
+                lambda: self.btn_execute.configure(
+                    state="normal",
+                    text="🚀 Aplicar Cambios y Reiniciar",
+                    fg_color=COLOR_PRIMARY,
+                ),
+            )
+
+
+# ============================================================================
+# PUNTO DE ENTRADA PRINCIPAL
+# ============================================================================
+
+
+def main():
+    """Función principal con verificación de privilegios de administrador."""
+
+    # Verificar privilegios de administrador (OBLIGATORIO para este programa)
+    if not is_admin():
+        response = messagebox.askyesno(
+            "🔐 Privilegios de Administrador Requeridos",
+            "Esta aplicación REQUIERE privilegios de administrador\n"
+            "para renombrar el equipo y unirlo a dominios.\n\n"
+            "¿Desea reiniciar la aplicación como administrador?",
+            icon="warning",
+        )
+
+        if response:
+            run_as_admin()
+        else:
+            messagebox.showerror(
+                "Error",
+                "La aplicación NO puede funcionar sin privilegios de administrador.\n\n"
+                "Por favor, ejecute la aplicación como administrador.",
+            )
+            sys.exit(1)
+
+    # Iniciar aplicación
+    try:
+        app = RenamerApp()
+        app.mainloop()
+    except Exception as e:
+        messagebox.showerror(
+            "Error Fatal",
+            f"No se pudo iniciar la aplicación:\n\n{e}\n\n"
+            f"Versión: {__version__}\n"
+            f"Autor: {__author__}\n"
+            f"Contacto: {__company__}",
+        )
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
